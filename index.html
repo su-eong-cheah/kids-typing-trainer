@@ -52,6 +52,11 @@
   .lesson-btn .num { font-weight: 700; color: #1565c0; display: block; margin-bottom: 3px; }
   .lesson-btn .keys { color: #5a6b7d; font-size: 0.85rem; display: block; }
   .lesson-btn .stars { color: #f9a825; font-size: 0.95rem; display: block; margin-top: 5px; min-height: 1.1em; }
+  .lesson-btn.is-next { border-color: #43a047; background: #f1f8e9; }
+  .next-badge {
+    display: inline-block; margin-top: 6px; background: #43a047; color: #fff;
+    border-radius: 999px; padding: 3px 12px; font-size: 0.82rem; font-weight: 700;
+  }
   /* Practice */
   .hidden { display: none !important; }
   .practice-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
@@ -70,7 +75,7 @@
   .target span.done { color: #2e7d32; }
   .target span.wrong { color: #c62828; background: #ffebee; }
   .target span.current { color: #1c2b3a; background: #fff59d; box-shadow: 0 0 0 2px #f9a825 inset; }
-  .finger-hint { text-align: center; margin: 12px 0 4px; font-size: 1.05rem; color: #33506e; min-height: 1.4em; }
+  .finger-hint { text-align: center; margin: 12px 0 4px; font-size: 1.2rem; color: #33506e; min-height: 1.4em; }
   .finger-hint b { color: #1565c0; }
   /* Keyboard */
   .keyboard { margin-top: 10px; user-select: none; pointer-events: none; }
@@ -151,6 +156,7 @@
       <p id="result-title"></p>
       <p>Speed: <b id="result-wpm"></b> words per minute &nbsp;•&nbsp; Accuracy: <b id="result-acc"></b>%</p>
       <p id="result-msg"></p>
+      <p id="result-best" class="hidden"></p>
     </div>
     <div class="row-btns">
       <button class="btn btn-plain" id="btn-retry">↻ Try again</button>
@@ -305,9 +311,12 @@ function renderHome() {
   }
   var unlocked = unlockedCount(currentProfile);
   var stars = profileProgress(currentProfile).stars;
+  var nextIdx = -1;
+  for (var ni = 0; ni < LESSONS.length; ni++) { if (!stars[ni]) { nextIdx = ni; break; } }
+  var anyDone = Object.keys(stars).length > 0;
   LESSONS.forEach(function (lesson, i) {
     var btn = document.createElement("button");
-    btn.className = "lesson-btn";
+    btn.className = "lesson-btn" + (i === nextIdx ? " is-next" : "");
     btn.disabled = i >= unlocked;
     var num = document.createElement("span");
     num.className = "num";
@@ -321,6 +330,12 @@ function renderHome() {
     st.className = "stars";
     st.textContent = stars[i] ? starString(stars[i]) : "";
     btn.appendChild(num); btn.appendChild(t); btn.appendChild(keys); btn.appendChild(st);
+    if (i === nextIdx) {
+      var badge = document.createElement("span");
+      badge.className = "next-badge";
+      badge.textContent = anyDone ? "▶ Next up" : "▶ Start here";
+      btn.appendChild(badge);
+    }
     btn.addEventListener("click", function () { startLesson(i); });
     lWrap.appendChild(btn);
   });
@@ -336,9 +351,16 @@ var HOME_KEYS = { "a":1,"s":1,"d":1,"f":1,"j":1,"k":1,"l":1,";":1 };
 function renderKeyboard() {
   var kb = document.getElementById("keyboard");
   kb.innerHTML = "";
-  KB_ROWS.forEach(function (row) {
+  KB_ROWS.forEach(function (row, rowIdx) {
     var div = document.createElement("div");
     div.className = "kb-row";
+    if (rowIdx === 2) {
+      var shL = document.createElement("div");
+      shL.className = "key wide";
+      shL.id = "key-shift-left";
+      shL.textContent = "Shift";
+      div.appendChild(shL);
+    }
     row.forEach(function (k) {
       var el = document.createElement("div");
       el.className = "key" + (HOME_KEYS[k] ? " home" : "");
@@ -346,6 +368,13 @@ function renderKeyboard() {
       el.textContent = k;
       div.appendChild(el);
     });
+    if (rowIdx === 2) {
+      var shR = document.createElement("div");
+      shR.className = "key wide";
+      shR.id = "key-shift-right";
+      shR.textContent = "Shift";
+      div.appendChild(shR);
+    }
     kb.appendChild(div);
   });
   var spaceRow = document.createElement("div");
@@ -368,6 +397,10 @@ function highlightNextKey() {
   if (el) { el.classList.add("next"); }
   var hint = document.getElementById("finger-hint");
   var f = fingerFor(ch);
+  if (SHIFT_KEYS.indexOf(ch) >= 0) {
+    var shEl = document.getElementById(f.indexOf("Right Shift") >= 0 ? "key-shift-right" : "key-shift-left");
+    if (shEl) { shEl.classList.add("next"); }
+  }
   hint.innerHTML = "";
   hint.appendChild(document.createTextNode("Next: "));
   var b = document.createElement("b");
@@ -457,6 +490,14 @@ function finishLesson() {
   if (stars === 3) { msg = "Amazing. Three stars!"; }
   else if (stars === 2) { msg = "Well done. One more star is waiting when you make almost no mistakes."; }
   document.getElementById("result-msg").textContent = msg;
+  var bestEl = document.getElementById("result-best");
+  if (prev > stars) {
+    bestEl.textContent = "Your best on this lesson: " + starString(prev) + ". That still counts.";
+    bestEl.classList.remove("hidden");
+  } else {
+    bestEl.textContent = "";
+    bestEl.classList.add("hidden");
+  }
   var nextBtn = document.getElementById("btn-next");
   var hasNext = session.lessonIdx + 1 < LESSONS.length;
   nextBtn.classList.toggle("hidden", !hasNext);
