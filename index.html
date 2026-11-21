@@ -3,14 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light">
 <title>Typing Trainer — Learn to Type</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { color-scheme: light; }
   body {
     font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
-    background: #f2f6fc;
+    background: linear-gradient(160deg, #a8d8ff 0%, #cdeffd 34%, #d9f7e3 68%, #ffefc4 100%);
+    background-attachment: fixed;
     color: #1c2b3a;
     min-height: 100vh;
     display: flex;
@@ -19,10 +22,11 @@
     padding: 20px 12px 40px;
   }
   header { text-align: center; margin-bottom: 14px; }
-  header h1 { font-size: 2rem; color: #1565c0; }
-  header p { color: #5a6b7d; margin-top: 4px; }
+  header h1 { font-size: 2rem; color: #0d47a1; }
+  header p { color: #37474f; margin-top: 4px; }
   .card {
     background: #fff;
+    border: 1px solid rgba(21, 101, 192, 0.12);
     border-radius: 16px;
     box-shadow: 0 4px 18px rgba(21, 101, 192, 0.10);
     padding: 22px;
@@ -50,11 +54,27 @@
     text-align: left; cursor: pointer; font-size: 0.98rem;
   }
   .lesson-btn:hover:not(:disabled) { border-color: #1565c0; }
-  .lesson-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .lesson-btn:disabled { cursor: not-allowed; }
   .lesson-btn .num { font-weight: 700; color: #1565c0; display: block; margin-bottom: 3px; }
-  .lesson-btn .keys { color: #5a6b7d; font-size: 0.85rem; display: block; }
-  .lesson-btn .stars { color: #f9a825; font-size: 0.95rem; display: block; margin-top: 5px; min-height: 1.1em; }
-  .lesson-btn.is-next { border-color: #43a047; background: #f1f8e9; }
+  .lesson-btn .keys { color: #33506e; font-size: 0.85rem; display: block; }
+  .lesson-btn .stars { color: #7a5800; font-size: 0.95rem; display: block; margin-top: 5px; min-height: 1.1em; }
+  .lesson-btn .gate-note { display: block; margin-top: 3px; font-size: 0.78rem; font-weight: 700; color: #7a4d00; }
+  .lesson-btn.lv-home { background: #e3f2fd; border-color: #90caf9; }
+  .lesson-btn.lv-top { background: #e0f2f1; border-color: #80cbc4; }
+  .lesson-btn.lv-bottom { background: #fff3e0; border-color: #ffcc80; }
+  .lesson-btn.lv-sent { background: #f3e5f5; border-color: #ce93d8; }
+  .lesson-btn.lv-num { background: #fff8e1; border-color: #ffe082; }
+  .lesson-btn.lv-sym { background: #fce4ec; border-color: #f48fb1; }
+  .lesson-btn.is-next { border-color: #43a047; background: #f1f8e9; box-shadow: 0 0 0 2px #a5d6a7; }
+  .lesson-btn:disabled { background: #edf1f4; border-color: #c3ced6; }
+  .lesson-btn:disabled .num, .lesson-btn:disabled .keys { color: #546e7a; }
+  .practice-btn {
+    border: 2px solid #4527a0; border-radius: 12px; padding: 14px;
+    text-align: left; cursor: pointer; font-size: 0.98rem;
+    background: linear-gradient(135deg, #1565c0, #4527a0); color: #fff;
+  }
+  .practice-btn .num { font-weight: 700; color: #fff; display: block; margin-bottom: 3px; }
+  .practice-btn .keys { color: #e3f2fd; font-size: 0.85rem; display: block; }
   .next-badge {
     display: inline-block; margin-top: 6px; background: #43a047; color: #fff;
     border-radius: 999px; padding: 3px 12px; font-size: 0.82rem; font-weight: 700;
@@ -138,8 +158,9 @@
   }
   .sound-btn {
     position: fixed; top: 10px; right: 10px; z-index: 60;
-    width: 44px; height: 44px; border-radius: 50%; border: 2px solid #d7e5f2;
+    width: 44px; height: 44px; border-radius: 50%; border: 2px solid #78909c;
     background: #fff; font-size: 1.25rem; cursor: pointer; line-height: 1; padding: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   }
   .scene.crashed { animation: sceneshake .5s ease; }
   /* Word games (Balloon Pop, Space Defender, Pizza Orders) */
@@ -214,13 +235,13 @@
   .progress-fill { height: 100%; background: #43a047; width: 0%; transition: width 0.15s; }
   .target {
     font-family: "Courier New", ui-monospace, monospace;
-    font-size: 2rem; line-height: 1.7; letter-spacing: 2px;
-    background: #f7fafd; border: 2px solid #e3ecf5; border-radius: 12px;
+    font-size: 2rem; line-height: 1.7; letter-spacing: 2px; font-weight: 700;
+    background: #ffffff; border: 2px solid #cfdce9; border-radius: 12px;
     padding: 18px 20px; min-height: 96px; word-break: break-all; user-select: none;
   }
-  .target span { color: #90a4b8; border-radius: 4px; }
+  .target span { color: #546e7a; border-radius: 4px; }
   .target span.done { color: #2e7d32; }
-  .target span.wrong { color: #c62828; background: #ffebee; }
+  .target span.wrong { color: #c62828; background: #ffebee; text-decoration: underline; text-underline-offset: 3px; }
   .target span.current { color: #1c2b3a; background: #fff59d; box-shadow: 0 0 0 2px #f9a825 inset; }
   .finger-hint { text-align: center; margin: 12px 0 4px; font-size: 1.2rem; color: #33506e; min-height: 1.4em; }
   .finger-hint b { color: #1565c0; }
@@ -228,22 +249,27 @@
   .keyboard { margin-top: 10px; user-select: none; pointer-events: none; }
   .kb-row { display: flex; justify-content: center; gap: 6px; margin-bottom: 6px; }
   .key {
-    min-width: 46px; height: 46px; padding: 0 6px;
-    display: flex; align-items: center; justify-content: center;
+    flex: 1 1 0; min-width: 0; max-width: 54px; height: 46px; padding: 0 2px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
     background: #eef3f9; border: 1px solid #cfdce9; border-bottom-width: 3px; border-radius: 8px;
-    font-size: 1rem; font-weight: 600; color: #33506e; text-transform: uppercase;
+    font-size: 1rem; font-weight: 600; color: #33506e; text-transform: uppercase; line-height: 1.05;
   }
-  .key.home { background: #e3ecf5; }
+  .key .kshift { font-size: 0.6rem; font-weight: 700; color: #546e7a; }
+  .key.next .kshift { color: #5f4b00; }
+  .key .kmain { font-size: 0.95rem; }
+  .key.home { background: #dcedc8; border-color: #aed581; }
   .key.next { background: #fff59d; border-color: #f9a825; color: #1c2b3a; transform: scale(1.08); }
-  .key.space { min-width: 300px; }
-  .key.wide { min-width: 76px; font-size: 0.8rem; }
+  .key.space { flex: 0 1 320px; max-width: 320px; }
+  .key.wide { flex-grow: 1.9; max-width: 108px; font-size: 0.72rem; }
   /* Buttons */
   .row-btns { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
   .btn {
     border: none; border-radius: 999px; padding: 11px 24px; font-size: 1rem; font-weight: 600; cursor: pointer;
   }
-  .btn-primary { background: #1565c0; color: #fff; }
+  .btn-primary { background: linear-gradient(135deg, #1565c0, #0d47a1); color: #fff; }
   .btn-plain { background: #e3ecf5; color: #33506e; }
+  .btn-drill { background: linear-gradient(135deg, #ffb300, #fb8c00); color: #1c2b3a; }
+  #result-gate { font-weight: 700; color: #2e7d32; margin-top: 6px; }
   /* Results */
   .results { text-align: center; padding: 16px 0 4px; }
   .results .big-stars { font-size: 2.6rem; color: #f9a825; letter-spacing: 6px; }
@@ -268,17 +294,22 @@
      they do not detect the typist's real fingers. */
   .hands { display: flex; justify-content: center; margin-top: 10px; pointer-events: none; }
   .hands-svg { width: 340px; max-width: 100%; height: auto; display: block; }
-  .palm { fill: #e8eef5; stroke: #9db8d2; stroke-width: 1.5; }
   .finger {
-    fill: #d7e5f2; stroke: #9db8d2; stroke-width: 1.5;
-    transition: transform 0.08s ease, fill 0.08s ease; transform-box: fill-box;
+    transform-box: fill-box; transform-origin: bottom center;
+    transition: transform 0.08s ease;
   }
-  .finger.next { fill: #ffd54f; stroke: #f9a825; transform: translateY(-4px); }
-  .finger.press { fill: #ffb300; stroke: #f9a825; transform: translateY(3px); }
+  .finger.next { transform: translateY(-4px); }
+  .finger.next path, .finger.next ellipse { fill: url(#gold-grad); }
+  .finger.press { transform: translateY(3px); }
+  .finger.press path { fill: #eaa06a; }
+  #finger-l-thumb.next { transform: translate(2px, -3px); }
+  #finger-r-thumb.next { transform: translate(-2px, -3px); }
+  #finger-l-thumb.press { transform: translate(-2px, 4px); }
+  #finger-r-thumb.press { transform: translate(2px, 4px); }
   @media (max-width: 640px) {
     .target { font-size: 1.5rem; }
-    .key { min-width: 30px; height: 38px; font-size: 0.8rem; }
-    .key.space { min-width: 170px; }
+    .key { height: 38px; font-size: 0.8rem; }
+    .key.space { flex-basis: 170px; }
   }
 </style>
 </head>
@@ -346,6 +377,7 @@
         <span>Speed: <b id="stat-wpm">0</b> wpm</span>
         <span>Accuracy: <b id="stat-acc">100</b>%</span>
         <span>Line: <b id="stat-line">1</b></span>
+        <span id="stat-elapsed-wrap" class="hidden">Time: <b id="stat-elapsed">0:00</b></span>
         <span id="stat-time-wrap" class="hidden">Time left: <b id="stat-time">1:00</b></span>
       </div>
     </div>
@@ -380,8 +412,9 @@
     <div class="results">
       <div class="big-stars" id="result-stars"></div>
       <p id="result-title"></p>
-      <p>Speed: <b id="result-wpm"></b> words per minute &nbsp;•&nbsp; Accuracy: <b id="result-acc"></b>%</p>
+      <p>Speed: <b id="result-wpm"></b> words per minute &nbsp;•&nbsp; Accuracy: <b id="result-acc"></b>% &nbsp;•&nbsp; Time: <b id="result-time">0:00</b></p>
       <p id="result-msg"></p>
+      <p id="result-gate" class="hidden"></p>
       <p id="result-best" class="hidden"></p>
       <p id="result-points"></p>
       <p id="result-badges" class="new-badges hidden"></p>
@@ -389,6 +422,7 @@
     </div>
     <div class="row-btns">
       <button class="btn btn-plain" id="btn-retry">↻ Try again</button>
+      <button class="btn btn-drill hidden" id="btn-drill">🎯 Drill your tricky keys (45 seconds)</button>
       <button class="btn btn-primary hidden" id="btn-next">Next lesson →</button>
       <button class="btn btn-plain" id="btn-home">← All lessons</button>
     </div>
@@ -424,7 +458,13 @@ var LESSONS = [
   { title: "All the letters", keys: "a–z", lines: [
     "the big jumpy fox", "five zebras jump", "quick brown fox jumps", "over the lazy dog", "pack my box with jugs" ] },
   { title: "Sentences", keys: "Shift + .", lines: [
-    "The cat sat on the mat.", "I can type all by myself.", "We love to read good books.", "Typing fast is a super power.", "Practice makes me quicker every day." ] }
+    "The cat sat on the mat.", "I can type all by myself.", "We love to read good books.", "Typing fast is a super power." ] },
+  { title: "Numbers: the number row", keys: "1 2 3 4 5 6 7 8 9 0", lines: [
+    "111 222 121 212", "333 444 343 434", "555 666 565 656", "777 888 787 878", "999 000 909 090", "1 2 3 4 5 6 7 8 9 0" ] },
+  { title: "Numbers in sentences", keys: "0-9 in words", lines: [
+    "I am 9 years old.", "We have 2 cats and 1 dog.", "Room 204 is on floor 2.", "I can count to 100.", "5 plus 5 is 10." ] },
+  { title: "Symbols", keys: "! ? ' - + = Shift", lines: [
+    "Wow! That is great!", "Can I have 1 more?", "Don't stop now.", "It's 5 o'clock.", "Wait! Is that a cat?", "My score is 10 - 2 = 8!" ] }
 ];
 
 /* Which finger presses each key (for the hint line) */
@@ -439,9 +479,27 @@ var FINGERS = {
   "k": "Right middle finger", "i": "Right middle finger", ",": "Right middle finger",
   "l": "Right ring finger", "o": "Right ring finger", ".": "Right ring finger",
   ";": "Right pinky", "p": "Right pinky", "/": "Right pinky", "'": "Right pinky",
+  "4": "Left index finger", "5": "Left index finger",
+  "6": "Right index finger", "7": "Right index finger",
+  "8": "Right middle finger", "9": "Right ring finger",
+  "0": "Right pinky", "-": "Right pinky", "=": "Right pinky",
+  "[": "Right pinky", "]": "Right pinky", "\\": "Right pinky",
+  "`": "Left pinky",
   " ": "Thumb"
 };
 var SHIFT_KEYS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+/* Shifted symbols: the character -> the base key that carries it. */
+var SHIFT_MAP = {
+  "~": "`", "!": "1", "@": "2", "#": "3", "$": "4", "%": "5", "^": "6",
+  "&": "7", "*": "8", "(": "9", ")": "0", "_": "-", "+": "=",
+  "{": "[", "}": "]", "|": "\\", ":": ";", "\"": "'", "<": ",", ">": ".", "?": "/"
+};
+function isShifted(ch) { return SHIFT_KEYS.indexOf(ch) >= 0 || !!SHIFT_MAP[ch]; }
+function keyIdFor(ch) {
+  if (ch === " ") { return "key-space"; }
+  if (SHIFT_MAP[ch]) { return "key-" + SHIFT_MAP[ch]; }
+  return "key-" + ch.toLowerCase();
+}
 function fingerPart(f) {
   if (f.indexOf("pinky") >= 0) { return "pinky"; }
   if (f.indexOf("ring") >= 0) { return "ring"; }
@@ -459,17 +517,18 @@ function fingersFor(ch) {
   if (ch === " ") { return ["finger-l-thumb", "finger-r-thumb"]; }
   var f = FINGERS[ch];
   if (f) { return [fingerIdFor(f)]; }
-  if (SHIFT_KEYS.indexOf(ch) >= 0) {
-    var lf = FINGERS[ch.toLowerCase()];
+  if (isShifted(ch)) {
+    var base = SHIFT_MAP[ch] || ch.toLowerCase();
+    var lf = FINGERS[base];
     if (!lf) { return []; }
     return [fingerIdFor(lf), lf.indexOf("Left") === 0 ? "finger-r-pinky" : "finger-l-pinky"];
   }
   return [];
 }
 function fingerFor(ch) {
-  if (SHIFT_KEYS.indexOf(ch) >= 0) {
-    var lower = ch.toLowerCase();
-    var f = FINGERS[lower] || "";
+  if (isShifted(ch)) {
+    var base = SHIFT_MAP[ch] || ch.toLowerCase();
+    var f = FINGERS[base] || "";
     var hand = f.indexOf("Left") === 0 ? "Right" : "Left";
     return f + " + " + hand + " Shift";
   }
@@ -624,6 +683,46 @@ function dingSound(vol, dur, delay) {
   tone(1568, dur, "sine", vol, delay || 0);
   tone(2637, dur * 0.55, "sine", vol * 0.4, delay || 0);
 }
+/* Surprise sounds (item 10): on a correct key, rarely and never
+   twice in quick succession, a silly synthesized sound joins the
+   clack. Lessons, practice, the drill and the games only, never a
+   Road timed test. The mute governs these like everything else:
+   every layer runs through tone/noiseBurst, which check soundOn. */
+var FUN_CHANCE = 0.006;
+var FUN_COOLDOWN_MS = 20000;
+var funState = { lastAt: -1e9, plays: 0, lastKind: "" };
+var FUN_KINDS = ["fart", "honk", "boing", "squeak", "pop"];
+function funSound(kind) {
+  var d = 0.03;
+  if (kind === "pop") {
+    tone(480, 0.09, "sine", 0.22, d, 980);
+  } else if (kind === "squeak") {
+    tone(950, 0.09, "sine", 0.16, d, 1500);
+    tone(1500, 0.1, "sine", 0.16, d + 0.09, 900);
+  } else if (kind === "honk") {
+    tone(370, 0.26, "square", 0.10, d);
+    tone(466, 0.26, "square", 0.10, d);
+  } else if (kind === "boing") {
+    tone(300, 0.34, "sine", 0.20, d, 75);
+    tone(200, 0.22, "sine", 0.09, d + 0.08, 85);
+  } else { /* fart: a short sputter of low sawtooth bursts */
+    for (var i = 0; i < 5; i++) {
+      tone(96 - i * 7, 0.05, "sawtooth", 0.15, d + i * 0.058, 58);
+      noiseBurst(0.04, 0.05, 420, 150, d + i * 0.058);
+    }
+  }
+}
+function maybeFunSound() {
+  if (!soundOn) { return; }
+  if (!session || session.mode === "test") { return; }
+  var now = Date.now();
+  if (now - funState.lastAt < FUN_COOLDOWN_MS) { return; }
+  if (Math.random() >= FUN_CHANCE) { return; }
+  funState.lastAt = now;
+  funState.plays++;
+  funState.lastKind = FUN_KINDS[Math.floor(Math.random() * FUN_KINDS.length)];
+  funSound(funState.lastKind);
+}
 function zipSound() {
   noiseBurst(0.22, 0.03, 500, 2600, 0, "bandpass");
 }
@@ -728,7 +827,7 @@ document.addEventListener("pointerdown", function () { ensureAudio(); });
 function blankRecord(name) {
   return { name: name, pin: "", createdAt: 0, stars: {}, best: {}, badges: [],
            streakCount: 0, streakLast: "", weekKey: "", weekBest: {},
-           stages: {}, stageBest: {}, games: {}, gameBest: {}, minis: {}, miniBest: {} };
+           stages: {}, stageBest: {}, games: {}, gameBest: {}, minis: {}, miniBest: {}, gates: {} };
 }
 function normalizeRecord(raw, fallbackName) {
   var rec = blankRecord(raw && typeof raw.name === "string" && raw.name ? raw.name : fallbackName);
@@ -748,6 +847,7 @@ function normalizeRecord(raw, fallbackName) {
   if (raw.gameBest && typeof raw.gameBest === "object" && !Array.isArray(raw.gameBest)) { rec.gameBest = raw.gameBest; }
   if (raw.minis && typeof raw.minis === "object" && !Array.isArray(raw.minis)) { rec.minis = raw.minis; }
   if (raw.miniBest && typeof raw.miniBest === "object" && !Array.isArray(raw.miniBest)) { rec.miniBest = raw.miniBest; }
+  if (raw.gates && typeof raw.gates === "object" && !Array.isArray(raw.gates)) { rec.gates = raw.gates; }
   return rec;
 }
 function profileProgress(name) {
@@ -974,11 +1074,28 @@ function initBackend() {
   refreshStatus();
   renderHome();
 }
+/* Advancement gates (keyboarding-instructor scheme): finishing a
+   lesson records stars and points as always, but the next lesson
+   unlocks only when a run meets the band gate. gates[idx] holds the
+   best gate run's accuracy and WPM, the consecutive failed-attempt
+   count, and the most-missed keys from the failed runs (for the
+   2-strike drill). */
+function bandFor(idx) {
+  if (idx <= 2) { return { acc: 90, wpm: 5, star3: 10 }; }
+  if (idx <= 8) { return { acc: 92, wpm: 6, star3: 12 }; }
+  return { acc: 93, wpm: 8, star3: 15 };
+}
+function gateMet(prog, idx) {
+  var g = prog.gates[idx];
+  if (!g) { return false; }
+  var band = bandFor(idx);
+  return g.acc >= band.acc && g.wpm >= band.wpm;
+}
 function unlockedCount(name) {
-  var stars = profileProgress(name).stars;
+  var prog = profileProgress(name);
   var n = 1;
   for (var i = 0; i < LESSONS.length; i++) {
-    if (stars[i]) { n = i + 2; }
+    if (gateMet(prog, i)) { n = i + 2; }
   }
   return Math.min(n, LESSONS.length);
 }
@@ -1007,7 +1124,7 @@ var BADGES = [
   { id: "bottom", emoji: "⬇️", name: "Bottom Row Star", how: "Finish lessons 10 and 11" },
   { id: "streak3", emoji: "🔥", name: "3-Day Streak", how: "Practise on 3 days in a row" },
   { id: "streak7", emoji: "💪", name: "Super Streak", how: "Practise on 7 days in a row" },
-  { id: "grad", emoji: "🎓", name: "Typing Graduate", how: "Finish all 13 lessons" },
+  { id: "grad", emoji: "🎓", name: "Typing Graduate", how: "Finish all 16 lessons" },
   { id: "road1", emoji: "🚗", name: "On the Road", how: "Clear Road stage 1" },
   { id: "road4", emoji: "🏁", name: "Halfway to 60", how: "Clear Road stage 4 (25 WPM)" },
   { id: "road8", emoji: "🏆", name: "Sixty Club", how: "Clear Road stage 8 (60 WPM)" },
@@ -1110,7 +1227,7 @@ function totalStars(prog) {
    The fluency program that follows the 13 key lessons. Eight timed
    stages from 10 to 60 WPM. A stage clears only at its target speed
    AND at least 95% accuracy, so speed never pays without care.
-   Stage 1 opens once all 13 lessons are finished; each stage then
+   Stage 1 opens once the final lesson's gate is passed; each stage then
    unlocks the next. Best WPM and accuracy per stage are stored on
    the player's record, next to the per-lesson bests. */
 var STAGE_GATE_ACC = 95;
@@ -1169,7 +1286,7 @@ function stageText(stage) {
   return text;
 }
 function stageUnlocked(prog, i) {
-  if (i === 0) { return Object.keys(prog.stars).length >= LESSONS.length; }
+  if (i === 0) { return gateMet(prog, LESSONS.length - 1); }
   var prev = prog.stages[i - 1];
   return !!(prev && prev.cleared);
 }
@@ -1304,7 +1421,7 @@ function renderRoad() {
   var cleared = clearedStageCount(prog);
   var summary = document.getElementById("road-summary");
   if (!graduated) {
-    summary.textContent = "Finish all 13 lessons to start the Road. The lessons teach your fingers where the keys are; the Road turns that into speed.";
+    summary.textContent = "Pass the gate on Lesson 16 to start the Road. The lessons teach your fingers where the keys are; the Road turns that into speed.";
   } else if (cleared >= STAGES.length) {
     summary.textContent = "You reached 60 WPM with accuracy. Amazing typing!";
   } else {
@@ -1375,13 +1492,14 @@ function renderRoad() {
     } else {
       var lock = document.createElement("span");
       lock.className = "sstate";
-      lock.textContent = i === 0 ? "🔒 Finish the lessons first" : "🔒 Clear stage " + i + " first";
+      lock.textContent = i === 0 ? "🔒 Pass the Lesson 16 gate first" : "🔒 Clear stage " + i + " first";
       row.appendChild(lock);
     }
     wrap.appendChild(row);
   });
 }
 function renderHome() {
+  stopElapsedTicker();
   if (pendingRemote && (!session || session.finished)) {
     if (currentProfile && pendingRemote.name === currentProfile && players[currentProfile]) {
       players[currentProfile] = pendingRemote;
@@ -1429,14 +1547,32 @@ function renderHome() {
     lWrap.appendChild(p);
     return;
   }
+  var prog0 = profileProgress(currentProfile);
   var unlocked = unlockedCount(currentProfile);
-  var stars = profileProgress(currentProfile).stars;
+  var stars = prog0.stars;
   var nextIdx = -1;
-  for (var ni = 0; ni < LESSONS.length; ni++) { if (!stars[ni]) { nextIdx = ni; break; } }
+  for (var ni = 0; ni < LESSONS.length; ni++) { if (!gateMet(prog0, ni)) { nextIdx = ni; break; } }
   var anyDone = Object.keys(stars).length > 0;
+  var practiceBtn = document.createElement("button");
+  practiceBtn.className = "practice-btn";
+  practiceBtn.id = "btn-practice";
+  var pNum = document.createElement("span");
+  pNum.className = "num";
+  pNum.textContent = "⌨️ Practice";
+  var pTitle = document.createElement("span");
+  pTitle.textContent = "Free typing, no scores";
+  var pKeys = document.createElement("span");
+  pKeys.className = "keys";
+  pKeys.textContent = "Uses the keys you have unlocked";
+  practiceBtn.appendChild(pNum);
+  practiceBtn.appendChild(pTitle);
+  practiceBtn.appendChild(pKeys);
+  practiceBtn.addEventListener("click", function () { startPractice(); });
+  lWrap.appendChild(practiceBtn);
   LESSONS.forEach(function (lesson, i) {
     var btn = document.createElement("button");
-    btn.className = "lesson-btn" + (i === nextIdx ? " is-next" : "");
+    var group = i <= 4 ? "lv-home" : i <= 8 ? "lv-top" : i <= 10 ? "lv-bottom" : i <= 12 ? "lv-sent" : i <= 14 ? "lv-num" : "lv-sym";
+    btn.className = "lesson-btn " + group + (i === nextIdx ? " is-next" : "");
     btn.disabled = i >= unlocked;
     var num = document.createElement("span");
     num.className = "num";
@@ -1450,6 +1586,12 @@ function renderHome() {
     st.className = "stars";
     st.textContent = stars[i] ? starString(stars[i]) : "";
     btn.appendChild(num); btn.appendChild(t); btn.appendChild(keys); btn.appendChild(st);
+    if (stars[i] && !gateMet(prog0, i)) {
+      var gn = document.createElement("span");
+      gn.className = "gate-note";
+      gn.textContent = "Gate still to beat";
+      btn.appendChild(gn);
+    }
     if (i === nextIdx) {
       var badge = document.createElement("span");
       badge.className = "next-badge";
@@ -1463,38 +1605,47 @@ function renderHome() {
 
 /* ---------------- Keyboard ---------------- */
 var KB_ROWS = [
-  ["q","w","e","r","t","y","u","i","o","p"],
-  ["a","s","d","f","g","h","j","k","l",";"],
-  ["z","x","c","v","b","n","m",",",".","/"]
+  [ {k:"`",s:"~"},{k:"1",s:"!"},{k:"2",s:"@"},{k:"3",s:"#"},{k:"4",s:"$"},{k:"5",s:"%"},{k:"6",s:"^"},{k:"7",s:"&"},{k:"8",s:"*"},{k:"9",s:"("},{k:"0",s:")"},{k:"-",s:"_"},{k:"=",s:"+"} ],
+  [ {k:"q"},{k:"w"},{k:"e"},{k:"r"},{k:"t"},{k:"y"},{k:"u"},{k:"i"},{k:"o"},{k:"p"},{k:"[",s:"{"},{k:"]",s:"}"},{k:"\\",s:"|"} ],
+  [ {k:"a"},{k:"s"},{k:"d"},{k:"f"},{k:"g"},{k:"h"},{k:"j"},{k:"k"},{k:"l"},{k:";"},{k:"'",s:"\""} ],
+  [ {k:"z"},{k:"x"},{k:"c"},{k:"v"},{k:"b"},{k:"n"},{k:"m"},{k:",",s:"<"},{k:".",s:">"},{k:"/",s:"?"} ]
 ];
 var HOME_KEYS = { "a":1,"s":1,"d":1,"f":1,"j":1,"k":1,"l":1,";":1 };
+function wideKey(id, label) {
+  var el = document.createElement("div");
+  el.className = "key wide";
+  el.id = id;
+  el.textContent = label;
+  return el;
+}
 function renderKeyboard() {
   var kb = document.getElementById("keyboard");
   kb.innerHTML = "";
   KB_ROWS.forEach(function (row, rowIdx) {
     var div = document.createElement("div");
     div.className = "kb-row";
-    if (rowIdx === 2) {
-      var shL = document.createElement("div");
-      shL.className = "key wide";
-      shL.id = "key-shift-left";
-      shL.textContent = "Shift";
-      div.appendChild(shL);
-    }
-    row.forEach(function (k) {
+    if (rowIdx === 1) { div.appendChild(wideKey("key-tab", "Tab")); }
+    if (rowIdx === 2) { div.appendChild(wideKey("key-caps", "Caps Lock")); }
+    if (rowIdx === 3) { div.appendChild(wideKey("key-shift-left", "Shift")); }
+    row.forEach(function (spec) {
       var el = document.createElement("div");
-      el.className = "key" + (HOME_KEYS[k] ? " home" : "");
-      el.id = "key-" + k;
-      el.textContent = k;
+      el.className = "key" + (HOME_KEYS[spec.k] ? " home" : "");
+      el.id = "key-" + spec.k;
+      if (spec.s) {
+        var sh = document.createElement("span");
+        sh.className = "kshift";
+        sh.textContent = spec.s;
+        el.appendChild(sh);
+      }
+      var mn = document.createElement("span");
+      mn.className = "kmain";
+      mn.textContent = spec.k;
+      el.appendChild(mn);
       div.appendChild(el);
     });
-    if (rowIdx === 2) {
-      var shR = document.createElement("div");
-      shR.className = "key wide";
-      shR.id = "key-shift-right";
-      shR.textContent = "Shift";
-      div.appendChild(shR);
-    }
+    if (rowIdx === 0) { div.appendChild(wideKey("key-backspace", "Backspace")); }
+    if (rowIdx === 2) { div.appendChild(wideKey("key-enter", "Enter")); }
+    if (rowIdx === 3) { div.appendChild(wideKey("key-shift-right", "Shift")); }
     kb.appendChild(div);
   });
   var spaceRow = document.createElement("div");
@@ -1506,61 +1657,42 @@ function renderKeyboard() {
   spaceRow.appendChild(sp);
   kb.appendChild(spaceRow);
 }
+/* Realistic hands, designed with Gemini (design file:
+   ~/workspace/kids-typing/gemini-hands-design.md). Anatomical stagger,
+   tapered fingers with nails, skin gradients, thumbs splayed inward
+   over the spacebar zone and always visible. The finger groups carry
+   this page's ids and the .finger class, so the existing next/press
+   logic drives them unchanged. */
 function buildHands() {
   var wrap = document.getElementById("hands");
-  var NS = "http://www.w3.org/2000/svg";
-  var svg = document.createElementNS(NS, "svg");
-  svg.setAttribute("viewBox", "0 0 340 104");
-  svg.setAttribute("class", "hands-svg");
-  svg.setAttribute("aria-hidden", "true");
-  function hand(side, ox) {
-    var g = document.createElementNS(NS, "g");
-    var palm = document.createElementNS(NS, "rect");
-    palm.setAttribute("x", ox + 2);
-    palm.setAttribute("y", 58);
-    palm.setAttribute("width", 96);
-    palm.setAttribute("height", 46);
-    palm.setAttribute("rx", 15);
-    palm.setAttribute("class", "palm");
-    g.appendChild(palm);
-    var spec = [
-      { id: "pinky", len: 38, dx: 0 },
-      { id: "ring", len: 52, dx: 23 },
-      { id: "middle", len: 60, dx: 46 },
-      { id: "index", len: 50, dx: 69 }
-    ];
-    spec.forEach(function (f) {
-      var r = document.createElementNS(NS, "rect");
-      r.setAttribute("x", side === "l" ? ox + 6 + f.dx : ox + 94 - 18 - f.dx);
-      r.setAttribute("y", 62 - f.len);
-      r.setAttribute("width", 18);
-      r.setAttribute("height", f.len + 10);
-      r.setAttribute("rx", 9);
-      r.setAttribute("class", "finger");
-      r.setAttribute("id", "finger-" + side + "-" + f.id);
-      g.appendChild(r);
-    });
-    var thumb = document.createElementNS(NS, "rect");
-    thumb.setAttribute("width", 17);
-    thumb.setAttribute("height", 40);
-    thumb.setAttribute("rx", 8.5);
-    thumb.setAttribute("class", "finger");
-    thumb.setAttribute("id", "finger-" + side + "-thumb");
-    if (side === "l") {
-      thumb.setAttribute("x", ox + 86);
-      thumb.setAttribute("y", 60);
-      thumb.setAttribute("transform", "rotate(-30 " + (ox + 94) + " 80)");
-    } else {
-      thumb.setAttribute("x", ox + 5);
-      thumb.setAttribute("y", 60);
-      thumb.setAttribute("transform", "rotate(30 " + (ox + 14) + " 80)");
-    }
-    g.appendChild(thumb);
-    svg.appendChild(g);
-  }
-  hand("l", 48);
-  hand("r", 188);
-  wrap.appendChild(svg);
+  wrap.innerHTML =
+  '<svg class="hands-svg" viewBox="0 0 340 160" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">' +
+  '<defs>' +
+  '<linearGradient id="skin-grad" x1="0%" y1="0%" x2="0%" y2="100%">' +
+  '<stop offset="0%" stop-color="#f7c8a8"/><stop offset="65%" stop-color="#eab08a"/><stop offset="100%" stop-color="#d5946c"/></linearGradient>' +
+  '<linearGradient id="thumb-grad" x1="0%" y1="0%" x2="100%" y2="100%">' +
+  '<stop offset="0%" stop-color="#f2be9c"/><stop offset="100%" stop-color="#d4936a"/></linearGradient>' +
+  '<linearGradient id="gold-grad" x1="0%" y1="0%" x2="0%" y2="100%">' +
+  '<stop offset="0%" stop-color="#ffe57f"/><stop offset="55%" stop-color="#ffca28"/><stop offset="100%" stop-color="#f59e0b"/></linearGradient>' +
+  '<filter id="hand-shadow" x="-10%" y="-10%" width="120%" height="125%">' +
+  '<feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-color="#3a2214" flood-opacity="0.22"/></filter>' +
+  '</defs>' +
+  '<g filter="url(#hand-shadow)">' +
+  '<path d="M48 78 Q46 118 54 148 L54 160 L112 160 L112 146 Q122 118 120 78 Q118 66 104 66 L64 66 Q50 66 48 78 Z" fill="url(#skin-grad)" stroke="#d89b74" stroke-width="1.2" stroke-linejoin="round"/>' +
+  '<g class="finger" id="finger-l-pinky"><path d="M52 78 Q50 46 53 24 Q54 14 61 14 Q68 14 69 24 Q70 48 68 78 Q68 86 60 86 Q52 86 52 78 Z" fill="url(#skin-grad)" stroke="#d89b74" stroke-width="1.1" stroke-linejoin="round"/><ellipse cx="61" cy="22" rx="3.2" ry="5.2" fill="#fde3d3" stroke="#e8b08c" stroke-width="0.7"/></g>' +
+  '<g class="finger" id="finger-l-ring"><path d="M70 76 Q68 40 71 17 Q72 7 79 7 Q86 7 87 17 Q89 42 88 76 Q88 85 79 85 Q70 85 70 76 Z" fill="url(#skin-grad)" stroke="#d89b74" stroke-width="1.1" stroke-linejoin="round"/><ellipse cx="79" cy="15" rx="3.5" ry="5.6" fill="#fde3d3" stroke="#e8b08c" stroke-width="0.7"/></g>' +
+  '<g class="finger" id="finger-l-middle"><path d="M90 75 Q88 34 91 11 Q92 2 99 2 Q106 2 107 11 Q109 36 108 75 Q108 84 99 84 Q90 84 90 75 Z" fill="url(#skin-grad)" stroke="#d89b74" stroke-width="1.1" stroke-linejoin="round"/><ellipse cx="99" cy="10" rx="3.5" ry="5.6" fill="#fde3d3" stroke="#e8b08c" stroke-width="0.7"/></g>' +
+  '<g class="finger" id="finger-l-index"><path d="M110 76 Q108 40 111 17 Q112 7 119 7 Q126 7 127 17 Q129 42 128 76 Q128 85 119 85 Q110 85 110 76 Z" fill="url(#skin-grad)" stroke="#d89b74" stroke-width="1.1" stroke-linejoin="round"/><ellipse cx="119" cy="15" rx="3.5" ry="5.6" fill="#fde3d3" stroke="#e8b08c" stroke-width="0.7"/></g>' +
+  '<g class="finger" id="finger-l-thumb"><path d="M128 102 Q138 92 146 80 Q151 71 158 74 Q165 77 160 86 Q152 98 140 108 Q132 114 127 110 Q124 106 128 102 Z" fill="url(#thumb-grad)" stroke="#d89b74" stroke-width="1.1" stroke-linejoin="round"/><ellipse cx="153" cy="79" rx="4.4" ry="3.2" fill="#fde3d3" stroke="#e8b08c" stroke-width="0.7" transform="rotate(-38 153 79)"/></g>' +
+  '</g>' +
+  '<g filter="url(#hand-shadow)">' +
+  '<path d="M220 78 Q218 118 228 148 L228 160 L286 160 L286 146 Q294 118 292 78 Q290 66 276 66 L236 66 Q222 66 220 78 Z" fill="url(#skin-grad)" stroke="#d89b74" stroke-width="1.2" stroke-linejoin="round"/>' +
+  '<g class="finger" id="finger-r-index"><path d="M212 76 Q211 42 213 17 Q214 7 221 7 Q228 7 229 17 Q232 40 230 76 Q230 85 221 85 Q212 85 212 76 Z" fill="url(#skin-grad)" stroke="#d89b74" stroke-width="1.1" stroke-linejoin="round"/><ellipse cx="221" cy="15" rx="3.5" ry="5.6" fill="#fde3d3" stroke="#e8b08c" stroke-width="0.7"/></g>' +
+  '<g class="finger" id="finger-r-middle"><path d="M232 75 Q231 36 233 11 Q234 2 241 2 Q248 2 249 11 Q252 34 250 75 Q250 84 241 84 Q232 84 232 75 Z" fill="url(#skin-grad)" stroke="#d89b74" stroke-width="1.1" stroke-linejoin="round"/><ellipse cx="241" cy="10" rx="3.5" ry="5.6" fill="#fde3d3" stroke="#e8b08c" stroke-width="0.7"/></g>' +
+  '<g class="finger" id="finger-r-ring"><path d="M252 76 Q251 42 253 17 Q254 7 261 7 Q268 7 269 17 Q272 40 270 76 Q270 85 261 85 Q252 85 252 76 Z" fill="url(#skin-grad)" stroke="#d89b74" stroke-width="1.1" stroke-linejoin="round"/><ellipse cx="261" cy="15" rx="3.5" ry="5.6" fill="#fde3d3" stroke="#e8b08c" stroke-width="0.7"/></g>' +
+  '<g class="finger" id="finger-r-pinky"><path d="M272 78 Q270 48 271 24 Q272 14 279 14 Q286 14 287 24 Q290 46 288 78 Q288 86 280 86 Q272 86 272 78 Z" fill="url(#skin-grad)" stroke="#d89b74" stroke-width="1.1" stroke-linejoin="round"/><ellipse cx="279" cy="22" rx="3.2" ry="5.2" fill="#fde3d3" stroke="#e8b08c" stroke-width="0.7"/></g>' +
+  '<g class="finger" id="finger-r-thumb"><path d="M212 102 Q202 92 194 80 Q189 71 182 74 Q175 77 180 86 Q188 98 200 108 Q208 114 213 110 Q216 106 212 102 Z" fill="url(#thumb-grad)" stroke="#d89b74" stroke-width="1.1" stroke-linejoin="round"/><ellipse cx="187" cy="79" rx="4.4" ry="3.2" fill="#fde3d3" stroke="#e8b08c" stroke-width="0.7" transform="rotate(38 187 79)"/></g>' +
+  '</g></svg>';
 }
 function updateHands(ch) {
   var all = document.querySelectorAll(".finger.next");
@@ -1586,12 +1718,11 @@ function highlightNextKey() {
   var ch = session.lines[session.lineIdx][session.pos];
   if (ch === undefined) { return; }
   updateHands(ch);
-  var id = ch === " " ? "key-space" : "key-" + ch.toLowerCase();
-  var el = document.getElementById(id);
+  var el = document.getElementById(keyIdFor(ch));
   if (el) { el.classList.add("next"); }
   var hint = document.getElementById("finger-hint");
   var f = fingerFor(ch);
-  if (SHIFT_KEYS.indexOf(ch) >= 0) {
+  if (isShifted(ch)) {
     var shEl = document.getElementById(f.indexOf("Right Shift") >= 0 ? "key-shift-right" : "key-shift-left");
     if (shEl) { shEl.classList.add("next"); }
   }
@@ -1604,6 +1735,36 @@ function highlightNextKey() {
 }
 
 /* ---------------- Practice ---------------- */
+/* Elapsed-time ticker for the untimed modes (lessons, practice):
+   tests, games and drills run on their own countdown tickers. */
+var elapsedTimer = null;
+function fmtTime(totalSec) {
+  totalSec = Math.max(0, Math.floor(totalSec));
+  return Math.floor(totalSec / 60) + ":" + ("0" + (totalSec % 60)).slice(-2);
+}
+function startElapsedTicker() {
+  stopElapsedTicker();
+  elapsedTimer = setInterval(function () {
+    if (!session || (session.mode !== "lesson" && session.mode !== "practice") || session.finished) {
+      stopElapsedTicker();
+      return;
+    }
+    updateStats();
+  }, 500);
+}
+function stopElapsedTicker() {
+  if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null; }
+}
+function setResultTime(sec) {
+  document.getElementById("result-time").textContent = fmtTime(sec);
+}
+function sessionElapsedSec() {
+  return session && session.startedAt ? (Date.now() - session.startedAt) / 1000 : 0;
+}
+function setSessionButtons(quitText, restartText) {
+  document.getElementById("btn-quit").textContent = quitText;
+  document.getElementById("btn-restart").textContent = restartText;
+}
 function startLesson(idx) {
   stopTestTicker();
   stopGameTicker();
@@ -1620,15 +1781,18 @@ function startLesson(idx) {
     correct: 0,
     total: 0,
     startedAt: null,
-    finished: false
+    finished: false,
+    missedKeys: {}
   };
   document.getElementById("lesson-title").textContent =
     "Lesson " + (idx + 1) + ": " + LESSONS[idx].title + " — " + currentProfile;
+  setSessionButtons("← All lessons", "↻ Restart lesson");
   if (document.activeElement && document.activeElement.blur) { document.activeElement.blur(); }
   showScreen("practice");
   renderKeyboard();
   renderLine();
   updateStats();
+  startElapsedTicker();
 }
 var testTimer = null;
 function startTestTicker() {
@@ -1648,7 +1812,9 @@ function startTest(idx) {
   stopTestTicker();
   stopGameTicker();
   stopWordTicker();
+  stopElapsedTicker();
   stopEngine();
+  setSessionButtons("← All lessons", "↻ Restart test");
   document.getElementById("game-scene").classList.add("hidden");
   document.getElementById("word-stage").classList.add("hidden");
   var stage = STAGES[idx];
@@ -1714,16 +1880,23 @@ function updateStats() {
   document.getElementById("progress-fill").style.width =
     Math.min(100, Math.round(100 * doneChars / totalChars)) + "%";
   var timeWrap = document.getElementById("stat-time-wrap");
-  if (session.mode === "test" || session.mode === "game") {
+  var elapsedWrap = document.getElementById("stat-elapsed-wrap");
+  if (session.mode === "test" || session.mode === "game" || session.mode === "drill") {
     timeWrap.classList.remove("hidden");
+    elapsedWrap.classList.add("hidden");
     var remain = session.durationSec;
     if (session.startedAt) {
       remain = Math.max(0, session.durationSec - Math.floor((Date.now() - session.startedAt) / 1000));
     }
-    document.getElementById("stat-time").textContent =
-      Math.floor(remain / 60) + ":" + ("0" + (remain % 60)).slice(-2);
+    document.getElementById("stat-time").textContent = fmtTime(remain);
+  } else if (session.mode === "lesson" || session.mode === "practice") {
+    timeWrap.classList.add("hidden");
+    elapsedWrap.classList.remove("hidden");
+    document.getElementById("stat-elapsed").textContent =
+      fmtTime(session.startedAt ? (Date.now() - session.startedAt) / 1000 : 0);
   } else {
     timeWrap.classList.add("hidden");
+    elapsedWrap.classList.add("hidden");
   }
 }
 function fillSaveNote() {
@@ -1778,6 +1951,10 @@ function finishTest() {
     "Stage " + (session.stageIdx + 1) + " test complete. Great typing, " + currentProfile + "!";
   document.getElementById("result-wpm").textContent = wpm;
   document.getElementById("result-acc").textContent = acc;
+  setResultTime(Math.min(sessionElapsedSec(), session.durationSec));
+  document.getElementById("result-gate").classList.add("hidden");
+  document.getElementById("btn-drill").classList.add("hidden");
+  document.getElementById("btn-retry").textContent = "↻ Try again";
   var msg;
   if (clearedNow && !wasCleared) {
     msg = "Stage cleared! You reached " + wpm + " WPM at " + acc + "% accuracy. Stage " +
@@ -1844,6 +2021,8 @@ function startGame(idx) {
   stopTestTicker();
   stopGameTicker();
   stopWordTicker();
+  stopElapsedTicker();
+  setSessionButtons("← All lessons", "↻ Restart drive");
   document.getElementById("word-stage").classList.add("hidden");
   var stage = STAGES[idx];
   session = {
@@ -1983,6 +2162,10 @@ function finishGame(crashed) {
     : "You finished the drive, " + currentProfile + "!";
   document.getElementById("result-wpm").textContent = wpm;
   document.getElementById("result-acc").textContent = acc;
+  setResultTime(sessionElapsedSec());
+  document.getElementById("result-gate").classList.add("hidden");
+  document.getElementById("btn-drill").classList.add("hidden");
+  document.getElementById("btn-retry").textContent = "↻ Try again";
   var dist = Math.round(session.distance);
   var msg;
   if (crashed) {
@@ -2065,7 +2248,9 @@ function startWordGame(game, idx) {
   stopTestTicker();
   stopGameTicker();
   stopWordTicker();
+  stopElapsedTicker();
   stopEngine();
+  setSessionButtons("← All lessons", "↻ Restart game");
   document.getElementById("game-scene").classList.add("hidden");
   var stage = STAGES[idx];
   session = {
@@ -2265,11 +2450,10 @@ function updateWordGuides(ch) {
     return;
   }
   updateHands(ch);
-  var id = ch === " " ? "key-space" : "key-" + ch.toLowerCase();
-  var el = document.getElementById(id);
+  var el = document.getElementById(keyIdFor(ch));
   if (el) { el.classList.add("next"); }
   var f = fingerFor(ch);
-  if (SHIFT_KEYS.indexOf(ch) >= 0 && f) {
+  if (isShifted(ch) && f) {
     var shEl = document.getElementById(f.indexOf("Right Shift") >= 0 ? "key-shift-right" : "key-shift-left");
     if (shEl) { shEl.classList.add("next"); }
   }
@@ -2317,6 +2501,7 @@ function handleWordKey(key) {
     session.correct++;
     session.wrongFlash = false;
     clackSound(key);
+    maybeFunSound();
     t.typed++;
     if (t.typed >= t.word.length) { wordComplete(t); return; }
   } else {
@@ -2455,6 +2640,10 @@ function finishWordGame(ended) {
     : names[game] + " finished, " + currentProfile + "!";
   document.getElementById("result-wpm").textContent = wpm;
   document.getElementById("result-acc").textContent = acc;
+  setResultTime(Math.min(sessionElapsedSec(), session.durationSec));
+  document.getElementById("result-gate").classList.add("hidden");
+  document.getElementById("btn-drill").classList.add("hidden");
+  document.getElementById("btn-retry").textContent = "↻ Try again";
   var stage = STAGES[idx];
   var msg;
   if (game === "balloon") {
@@ -2505,14 +2694,18 @@ function finishLesson() {
   if (session.mode === "test") { finishTest(); return; }
   if (session.mode === "game") { finishGame(false); return; }
   if (session.mode === "words") { finishWordGame(false); return; }
+  if (session.mode === "drill") { finishDrill(); return; }
   if (session.finished) { return; }
   session.finished = true;
+  stopElapsedTicker();
   var acc = session.total === 0 ? 100 : Math.round(100 * session.correct / session.total);
   var minutes = session.startedAt ? (Date.now() - session.startedAt) / 60000 : 0;
   var wpm = minutes > 0 ? Math.round((session.correct / 5) / minutes) : 0;
+  var band = bandFor(session.lessonIdx);
   var stars = 1;
-  if (acc >= 90) { stars = 2; }
-  if (acc >= 97 && wpm >= 8) { stars = 3; }
+  if (acc >= band.acc) { stars = 2; }
+  if (acc >= 97 && wpm >= band.star3) { stars = 3; }
+  var met = acc >= band.acc && wpm >= band.wpm;
   var prog = profileProgress(currentProfile);
   var prev = prog.stars[session.lessonIdx] || 0;
   var totalBefore = totalPoints(prog);
@@ -2523,6 +2716,25 @@ function finishLesson() {
   if (prog.weekKey !== wk) { prog.weekKey = wk; prog.weekBest = {}; }
   if (runPts > (prog.weekBest[session.lessonIdx] || 0)) { prog.weekBest[session.lessonIdx] = runPts; }
   if (stars > prev) { prog.stars[session.lessonIdx] = stars; }
+  /* Gate bookkeeping: a gate-meeting run stores its acc/wpm and clears
+     the strike count; a failed run adds a strike and merges the keys
+     missed this run into the drill targets. */
+  var g = prog.gates[session.lessonIdx];
+  if (!g || typeof g !== "object") {
+    g = { acc: 0, wpm: 0, fails: 0, miss: {} };
+    prog.gates[session.lessonIdx] = g;
+  }
+  if (typeof g.fails !== "number") { g.fails = 0; }
+  if (!g.miss || typeof g.miss !== "object") { g.miss = {}; }
+  if (met) {
+    if (acc > (g.acc || 0) || (acc === g.acc && wpm > (g.wpm || 0))) { g.acc = acc; g.wpm = wpm; }
+    g.fails = 0;
+    g.miss = {};
+  } else {
+    g.fails++;
+    var mk = session.missedKeys || {};
+    for (var key in mk) { g.miss[key] = (g.miss[key] || 0) + mk[key]; }
+  }
   updateStreak(prog);
   var newBadges = awardBadges(prog, { acc: acc, wpm: wpm });
   persistPlayer(currentProfile);
@@ -2535,6 +2747,28 @@ function finishLesson() {
     "Lesson " + (session.lessonIdx + 1) + " complete. Great typing, " + currentProfile + "!";
   document.getElementById("result-wpm").textContent = wpm;
   document.getElementById("result-acc").textContent = acc;
+  setResultTime(sessionElapsedSec());
+  var gateEl = document.getElementById("result-gate");
+  var hasNextLesson = session.lessonIdx + 1 < LESSONS.length;
+  if (met && hasNextLesson) {
+    gateEl.textContent = "🎉 You unlocked Lesson " + (session.lessonIdx + 2) + "!";
+    gateEl.classList.remove("hidden");
+  } else if (met) {
+    gateEl.textContent = "🎉 You passed the final gate. The Road to 60 WPM is open!";
+    gateEl.classList.remove("hidden");
+  } else {
+    var missing = [];
+    if (acc < band.acc) {
+      missing.push("You need " + band.acc + "% accuracy to unlock the next lesson. You got " + acc + "%.");
+    }
+    if (wpm < band.wpm) {
+      missing.push("You need " + band.wpm + " WPM to unlock the next lesson. You got " + wpm + ".");
+    }
+    gateEl.textContent = missing.join(" ") + " Try again!";
+    gateEl.classList.remove("hidden");
+  }
+  var drillBtn = document.getElementById("btn-drill");
+  drillBtn.classList.toggle("hidden", met || g.fails < 2);
   var MSGS = {
     3: ["Amazing. Three stars!", "Perfect typing. Three stars!", "You nailed it. Three stars!"],
     2: ["Well done. One more star is waiting when you make almost no mistakes.",
@@ -2572,17 +2806,251 @@ function finishLesson() {
     bestEl.classList.add("hidden");
   }
   fillSaveNote();
+  document.getElementById("btn-retry").textContent = "↻ Try again";
   var nextBtn = document.getElementById("btn-next");
-  var hasNext = session.lessonIdx + 1 < LESSONS.length;
   nextBtn.textContent = "Next lesson →";
-  nextBtn.classList.toggle("hidden", !hasNext);
+  nextBtn.classList.toggle("hidden", !(met && hasNextLesson));
   showScreen("results");
   celebrate(newBadges, totalBefore, totalAfter, "typewriter");
+}
+/* ---------------- 2-strike drill ----------------
+   After two consecutive failed gate attempts on a lesson, the results
+   screen offers a 45-second drill on the two keys missed most across
+   those runs. The drill scores nothing; it just aims the next try. */
+var drillTimer = null;
+function startDrillTicker() {
+  stopDrillTicker();
+  drillTimer = setInterval(function () {
+    if (!session || session.mode !== "drill" || session.finished) { stopDrillTicker(); return; }
+    updateStats();
+    if (session.startedAt && Date.now() - session.startedAt >= session.durationSec * 1000) {
+      finishLesson();
+    }
+  }, 250);
+}
+function stopDrillTicker() {
+  if (drillTimer) { clearInterval(drillTimer); drillTimer = null; }
+}
+function drillKeysFor(prog, idx) {
+  var keys = [];
+  var g = prog.gates[idx];
+  if (g && g.miss) {
+    keys = Object.keys(g.miss).filter(function (k) { return k !== " "; });
+    keys.sort(function (a, b) { return g.miss[b] - g.miss[a]; });
+    keys = keys.slice(0, 2);
+  }
+  if (!keys.length) {
+    var counts = {};
+    LESSONS[idx].lines.slice(0, 2).forEach(function (line) {
+      for (var i = 0; i < line.length; i++) {
+        if (line[i] !== " ") { counts[line[i]] = (counts[line[i]] || 0) + 1; }
+      }
+    });
+    keys = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; }).slice(0, 2);
+  }
+  return keys;
+}
+function drillLinesFor(keys) {
+  var a = keys[0], b = keys[1] || keys[0];
+  return [
+    a + a + a + " " + b + b + b + " " + a + b + a,
+    b + a + b + " " + a + a + " " + b + b,
+    a + b + " " + b + a + " " + a + b + b,
+    b + b + " " + a + " " + b + a + " " + a + b,
+    a + a + b + " " + b + b + a + " " + a + b + a,
+    b + a + " " + a + b + " " + b + a + b
+  ];
+}
+function startDrill() {
+  var idx = session && typeof session.lessonIdx === "number" ? session.lessonIdx : 0;
+  stopTestTicker();
+  stopGameTicker();
+  stopWordTicker();
+  stopElapsedTicker();
+  stopEngine();
+  document.getElementById("game-scene").classList.add("hidden");
+  document.getElementById("word-stage").classList.add("hidden");
+  var keys = drillKeysFor(profileProgress(currentProfile), idx);
+  session = {
+    mode: "drill",
+    lessonIdx: idx,
+    lineIdx: 0,
+    pos: 0,
+    lines: drillLinesFor(keys),
+    correct: 0,
+    total: 0,
+    startedAt: null,
+    finished: false,
+    durationSec: 45,
+    drillKeys: keys
+  };
+  document.getElementById("lesson-title").textContent =
+    "🎯 Tricky keys drill: " + keys.join(" and ") + " — " + currentProfile;
+  setSessionButtons("← All lessons", "↻ Restart drill");
+  if (document.activeElement && document.activeElement.blur) { document.activeElement.blur(); }
+  showScreen("practice");
+  renderKeyboard();
+  renderLine();
+  updateStats();
+  startDrillTicker();
+}
+function finishDrill() {
+  if (session.finished) { return; }
+  session.finished = true;
+  stopDrillTicker();
+  var acc = session.total === 0 ? 100 : Math.round(100 * session.correct / session.total);
+  var minutes = session.startedAt ? (Date.now() - session.startedAt) / 60000 : 0;
+  var wpm = minutes > 0 ? Math.round((session.correct / 5) / minutes) : 0;
+  document.getElementById("result-stars").textContent = "🎯";
+  document.getElementById("result-title").textContent = "Drill done, " + currentProfile + "!";
+  document.getElementById("result-wpm").textContent = wpm;
+  document.getElementById("result-acc").textContent = acc;
+  setResultTime(Math.min(sessionElapsedSec(), session.durationSec));
+  document.getElementById("result-msg").textContent =
+    "You practised your tricky keys: " + session.drillKeys.join(" and ") + ". Now try the lesson again and beat the gate!";
+  document.getElementById("result-gate").classList.add("hidden");
+  document.getElementById("result-points").textContent = "";
+  var badgesEl = document.getElementById("result-badges");
+  badgesEl.textContent = "";
+  badgesEl.classList.add("hidden");
+  var bestEl = document.getElementById("result-best");
+  bestEl.textContent = "";
+  bestEl.classList.add("hidden");
+  fillSaveNote();
+  document.getElementById("btn-retry").textContent = "Try the lesson →";
+  document.getElementById("btn-drill").classList.add("hidden");
+  document.getElementById("btn-next").classList.add("hidden");
+  showScreen("results");
+  var t = totalPoints(profileProgress(currentProfile));
+  celebrate([], t, t, "typewriter");
+}
+/* ---------------- Free practice ----------------
+   Open-ended typing built from the keys of the lessons whose gates
+   the player has passed (Lesson 1 keys if none). Real words once
+   enough letters are unlocked, letter drills before that. No points,
+   no stars, no gates; a session still counts toward the streak. */
+function practiceKeySet(prog) {
+  var highest = -1;
+  for (var i = 0; i < LESSONS.length; i++) { if (gateMet(prog, i)) { highest = i; } }
+  var upto = highest < 0 ? 0 : highest;
+  var set = {};
+  for (var li = 0; li <= upto; li++) {
+    LESSONS[li].lines.forEach(function (line) {
+      for (var ci = 0; ci < line.length; ci++) {
+        if (line[ci] !== " ") { set[line[ci]] = 1; }
+      }
+    });
+  }
+  return set;
+}
+function practiceWords(set) {
+  var letters = {};
+  Object.keys(set).forEach(function (ch) { letters[ch.toLowerCase()] = 1; });
+  var words = [];
+  STAGES.forEach(function (st) {
+    stageWords(st).forEach(function (w) {
+      var ok = w.length >= 3;
+      for (var i = 0; i < w.length && ok; i++) { if (!letters[w[i]]) { ok = false; } }
+      if (ok && words.indexOf(w) < 0) { words.push(w); }
+    });
+  });
+  return words;
+}
+function makePracticeLine(set, words) {
+  if (words.length >= 8) {
+    var n = 3 + Math.floor(Math.random() * 3);
+    var parts = [];
+    for (var i = 0; i < n; i++) { parts.push(words[Math.floor(Math.random() * words.length)]); }
+    return parts.join(" ");
+  }
+  var keys = Object.keys(set);
+  var chunks = [];
+  for (var c = 0; c < 4; c++) {
+    var len = 3 + Math.floor(Math.random() * 2);
+    var s = "";
+    for (var j = 0; j < len; j++) { s += keys[Math.floor(Math.random() * keys.length)]; }
+    chunks.push(s);
+  }
+  return chunks.join(" ");
+}
+function pushPracticeLines(sess) {
+  while (sess.lines.length - sess.lineIdx < 4) {
+    sess.lines.push(makePracticeLine(sess.practiceSet, sess.practiceWords));
+  }
+}
+function startPractice() {
+  stopTestTicker();
+  stopGameTicker();
+  stopWordTicker();
+  stopElapsedTicker();
+  stopDrillTicker();
+  stopEngine();
+  document.getElementById("game-scene").classList.add("hidden");
+  document.getElementById("word-stage").classList.add("hidden");
+  var prog = profileProgress(currentProfile);
+  var set = practiceKeySet(prog);
+  session = {
+    mode: "practice",
+    lessonIdx: 0,
+    lineIdx: 0,
+    pos: 0,
+    lines: [],
+    correct: 0,
+    total: 0,
+    startedAt: null,
+    finished: false,
+    practiceSet: set,
+    practiceWords: practiceWords(set)
+  };
+  pushPracticeLines(session);
+  document.getElementById("lesson-title").textContent = "⌨️ Practice — " + currentProfile;
+  setSessionButtons("End practice", "↻ Restart practice");
+  if (document.activeElement && document.activeElement.blur) { document.activeElement.blur(); }
+  showScreen("practice");
+  renderKeyboard();
+  renderLine();
+  updateStats();
+  startElapsedTicker();
+}
+function finishPractice() {
+  if (session.finished) { return; }
+  session.finished = true;
+  stopElapsedTicker();
+  var acc = session.total === 0 ? 100 : Math.round(100 * session.correct / session.total);
+  var minutes = session.startedAt ? (Date.now() - session.startedAt) / 60000 : 0;
+  var wpm = minutes > 0 ? Math.round((session.correct / 5) / minutes) : 0;
+  var prog = profileProgress(currentProfile);
+  updateStreak(prog);
+  persistPlayer(currentProfile);
+  pendingRemote = null;
+  document.getElementById("result-stars").textContent = "⌨️";
+  document.getElementById("result-title").textContent = "Practice done, " + currentProfile + "!";
+  document.getElementById("result-wpm").textContent = wpm;
+  document.getElementById("result-acc").textContent = acc;
+  setResultTime(sessionElapsedSec());
+  document.getElementById("result-msg").textContent =
+    "You typed " + session.total + " characters in " + fmtTime(sessionElapsedSec()) +
+    ". Practice has no points and no stars. It just makes you better.";
+  document.getElementById("result-gate").classList.add("hidden");
+  document.getElementById("result-points").textContent = "";
+  var badgesEl = document.getElementById("result-badges");
+  badgesEl.textContent = "";
+  badgesEl.classList.add("hidden");
+  var bestEl = document.getElementById("result-best");
+  bestEl.textContent = "";
+  bestEl.classList.add("hidden");
+  fillSaveNote();
+  document.getElementById("btn-retry").textContent = "↻ Practice again";
+  document.getElementById("btn-drill").classList.add("hidden");
+  document.getElementById("btn-next").classList.add("hidden");
+  showScreen("results");
+  var t = totalPoints(prog);
+  celebrate([], t, t, "typewriter");
 }
 document.addEventListener("keydown", function (e) {
   if (!session || session.finished || practiceScreen.classList.contains("hidden")) { return; }
   if (session.mode === "words") { handleWordKey(e.key); return; }
-  if ((session.mode === "test" || session.mode === "game") && session.startedAt &&
+  if ((session.mode === "test" || session.mode === "game" || session.mode === "drill") && session.startedAt &&
       Date.now() - session.startedAt >= session.durationSec * 1000) {
     finishLesson();
     return;
@@ -2602,16 +3070,21 @@ document.addEventListener("keydown", function (e) {
   if (key === expected) {
     session.correct++;
     clackSound(key);
+    maybeFunSound();
     if (session.mode === "game") { session.keyTimes.push(Date.now()); }
     if (span) { span.classList.add("done"); span.classList.remove("wrong"); }
   } else {
     if (span) { span.classList.add("wrong"); }
+    if (session.mode === "lesson" && session.missedKeys) {
+      session.missedKeys[expected] = (session.missedKeys[expected] || 0) + 1;
+    }
     if (session.mode === "game") { splatSound(); gameMistake(); }
     else { buzzSound(); }
   }
   if (session.finished) { return; }
   session.pos++;
   if (session.pos >= text.length) {
+    if (session.mode === "practice") { pushPracticeLines(session); }
     if (session.lineIdx + 1 < session.lines.length) {
       session.lineIdx++;
       renderLine();
@@ -2791,12 +3264,19 @@ document.getElementById("btn-restart").addEventListener("click", function () {
   if (session.mode === "test") { startTest(session.stageIdx); }
   else if (session.mode === "game") { startGame(session.stageIdx); }
   else if (session.mode === "words") { startWordGame(session.game, session.stageIdx); }
+  else if (session.mode === "practice") { startPractice(); }
+  else if (session.mode === "drill") { startDrill(); }
   else { startLesson(session.lessonIdx); }
 });
 document.getElementById("btn-quit").addEventListener("click", function () {
+  if (session && session.mode === "practice" && !session.finished && session.startedAt) {
+    finishPractice();
+    return;
+  }
   stopTestTicker();
   stopGameTicker();
   stopWordTicker();
+  stopDrillTicker();
   stopEngine();
   session = null;
   renderHome();
@@ -2807,7 +3287,12 @@ document.getElementById("btn-retry").addEventListener("click", function () {
   if (session.mode === "test") { startTest(session.stageIdx); }
   else if (session.mode === "game") { startGame(session.stageIdx); }
   else if (session.mode === "words") { startWordGame(session.game, session.stageIdx); }
+  else if (session.mode === "practice") { startPractice(); }
   else { startLesson(session.lessonIdx); }
+});
+document.getElementById("btn-drill").addEventListener("click", function () {
+  if (!session || session.mode !== "lesson") { return; }
+  startDrill();
 });
 document.getElementById("btn-next").addEventListener("click", function () {
   if (!session) { return; }
@@ -2816,6 +3301,8 @@ document.getElementById("btn-next").addEventListener("click", function () {
 document.getElementById("btn-home").addEventListener("click", function () {
   stopTestTicker();
   stopGameTicker();
+  stopWordTicker();
+  stopDrillTicker();
   stopEngine();
   session = null;
   renderHome();
