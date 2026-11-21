@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Typing Trainer — Learn to Type</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+    background: #f2f6fc;
+    color: #1c2b3a;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 12px 40px;
+  }
+  header { text-align: center; margin-bottom: 14px; }
+  header h1 { font-size: 2rem; color: #1565c0; }
+  header p { color: #5a6b7d; margin-top: 4px; }
+  .card {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 4px 18px rgba(21, 101, 192, 0.10);
+    padding: 22px;
+    width: 100%;
+    max-width: 860px;
+  }
+  /* Profiles */
+  .profiles { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 18px; }
+  .profile-btn {
+    border: 2px solid #cfdce9; background: #fff; border-radius: 999px;
+    padding: 9px 20px; font-size: 1.05rem; cursor: pointer; font-weight: 600; color: #33506e;
+  }
+  .profile-btn.active { background: #1565c0; border-color: #1565c0; color: #fff; }
+  .profile-btn small { display: block; font-weight: 400; font-size: 0.75rem; opacity: 0.85; }
+  .register-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 18px; }
+  .register-row input {
+    border: 2px solid #cfdce9; border-radius: 999px; padding: 10px 18px; font-size: 1rem; min-width: 240px;
+    font-family: inherit; color: #1c2b3a;
+  }
+  .register-row input:focus { outline: none; border-color: #1565c0; }
+  /* Lessons grid */
+  .lessons { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+  .lesson-btn {
+    border: 2px solid #cfdce9; background: #fbfdff; border-radius: 12px; padding: 14px;
+    text-align: left; cursor: pointer; font-size: 0.98rem;
+  }
+  .lesson-btn:hover:not(:disabled) { border-color: #1565c0; }
+  .lesson-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .lesson-btn .num { font-weight: 700; color: #1565c0; display: block; margin-bottom: 3px; }
+  .lesson-btn .keys { color: #5a6b7d; font-size: 0.85rem; display: block; }
+  .lesson-btn .stars { color: #f9a825; font-size: 0.95rem; display: block; margin-top: 5px; min-height: 1.1em; }
+  /* Practice */
+  .hidden { display: none !important; }
+  .practice-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .practice-head h2 { font-size: 1.25rem; color: #1565c0; }
+  .stats { display: flex; gap: 16px; font-size: 1rem; color: #33506e; }
+  .stats b { color: #1c2b3a; }
+  .progress-track { height: 10px; background: #e3ecf5; border-radius: 999px; overflow: hidden; margin: 10px 0 16px; }
+  .progress-fill { height: 100%; background: #43a047; width: 0%; transition: width 0.15s; }
+  .target {
+    font-family: "Courier New", ui-monospace, monospace;
+    font-size: 2rem; line-height: 1.7; letter-spacing: 2px;
+    background: #f7fafd; border: 2px solid #e3ecf5; border-radius: 12px;
+    padding: 18px 20px; min-height: 96px; word-break: break-all; user-select: none;
+  }
+  .target span { color: #90a4b8; border-radius: 4px; }
+  .target span.done { color: #2e7d32; }
+  .target span.wrong { color: #c62828; background: #ffebee; }
+  .target span.current { color: #1c2b3a; background: #fff59d; box-shadow: 0 0 0 2px #f9a825 inset; }
+  .finger-hint { text-align: center; margin: 12px 0 4px; font-size: 1.05rem; color: #33506e; min-height: 1.4em; }
+  .finger-hint b { color: #1565c0; }
+  /* Keyboard */
+  .keyboard { margin-top: 10px; user-select: none; pointer-events: none; }
+  .kb-row { display: flex; justify-content: center; gap: 6px; margin-bottom: 6px; }
+  .key {
+    min-width: 46px; height: 46px; padding: 0 6px;
+    display: flex; align-items: center; justify-content: center;
+    background: #eef3f9; border: 1px solid #cfdce9; border-bottom-width: 3px; border-radius: 8px;
+    font-size: 1rem; font-weight: 600; color: #33506e; text-transform: uppercase;
+  }
+  .key.home { background: #e3ecf5; }
+  .key.next { background: #fff59d; border-color: #f9a825; color: #1c2b3a; transform: scale(1.08); }
+  .key.space { min-width: 300px; }
+  .key.wide { min-width: 76px; font-size: 0.8rem; }
+  /* Buttons */
+  .row-btns { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .btn {
+    border: none; border-radius: 999px; padding: 11px 24px; font-size: 1rem; font-weight: 600; cursor: pointer;
+  }
+  .btn-primary { background: #1565c0; color: #fff; }
+  .btn-plain { background: #e3ecf5; color: #33506e; }
+  /* Results */
+  .results { text-align: center; padding: 16px 0 4px; }
+  .results .big-stars { font-size: 2.6rem; color: #f9a825; letter-spacing: 6px; }
+  .results p { font-size: 1.15rem; margin: 8px 0; color: #33506e; }
+  .results p b { color: #1c2b3a; }
+  .note { text-align: center; color: #5a6b7d; font-size: 0.9rem; margin-top: 14px; }
+  @media (max-width: 640px) {
+    .target { font-size: 1.5rem; }
+    .key { min-width: 30px; height: 38px; font-size: 0.8rem; }
+    .key.space { min-width: 170px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>⌨️ Typing Trainer</h1>
+  <p>Learn to type without looking at the keys. Join with your name, pick a lesson, and go.</p>
+</header>
+
+<div class="card">
+  <!-- Home screen -->
+  <div id="home-screen">
+    <div class="profiles" id="profiles"></div>
+    <div class="register-row">
+      <input id="new-name" type="text" maxlength="20" placeholder="New player? Type your name" autocomplete="off">
+      <button class="btn btn-primary" id="btn-register">Join</button>
+      <button class="btn btn-plain hidden" id="btn-remove-profile">Remove player</button>
+    </div>
+    <div class="lessons" id="lessons"></div>
+    <p class="note">Your player name and progress are saved on this device, in this browser. You need a real keyboard for this — a laptop or desktop works best.</p>
+  </div>
+
+  <!-- Practice screen -->
+  <div id="practice-screen" class="hidden">
+    <div class="practice-head">
+      <h2 id="lesson-title"></h2>
+      <div class="stats">
+        <span>Speed: <b id="stat-wpm">0</b> wpm</span>
+        <span>Accuracy: <b id="stat-acc">100</b>%</span>
+        <span>Line: <b id="stat-line">1</b></span>
+      </div>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+    <div class="target" id="target"></div>
+    <div class="finger-hint" id="finger-hint"></div>
+    <div class="keyboard" id="keyboard"></div>
+    <div class="row-btns">
+      <button class="btn btn-plain" id="btn-restart">↻ Restart lesson</button>
+      <button class="btn btn-plain" id="btn-quit">← All lessons</button>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div id="results-screen" class="hidden">
+    <div class="results">
+      <div class="big-stars" id="result-stars"></div>
+      <p id="result-title"></p>
+      <p>Speed: <b id="result-wpm"></b> words per minute &nbsp;•&nbsp; Accuracy: <b id="result-acc"></b>%</p>
+      <p id="result-msg"></p>
+    </div>
+    <div class="row-btns">
+      <button class="btn btn-plain" id="btn-retry">↻ Try again</button>
+      <button class="btn btn-primary hidden" id="btn-next">Next lesson →</button>
+      <button class="btn btn-plain" id="btn-home">← All lessons</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ---------------- Curriculum ---------------- */
+var LESSONS = [
+  { title: "Home row: F and J", keys: "f  j", lines: [
+    "fff jjj fjf jfj", "jjj fff jfj fjf", "fj fj jf jf ff jj", "fjf jfj fjf jfj" ] },
+  { title: "Home row: D and K", keys: "d  k", lines: [
+    "ddd kkk dkd kdk", "dk dk kd kd dd kk", "dkd kdk dkd kdk", "fd jk df kj dk kd" ] },
+  { title: "Home row: S and L", keys: "s  l", lines: [
+    "sss lll sls lsl", "sl sl ls ls ss ll", "sls lsl sls lsl", "fs jl ds kl sd lk" ] },
+  { title: "Home row: A and ;", keys: "a  ;", lines: [
+    "aaa ;;; a;a ;a;", "a; a; ;a ;a aa ;;", "a;a ;a; a;a ;a;", "fa ja da ka sa la a;" ] },
+  { title: "Home row words", keys: "a s d f j k l ;", lines: [
+    "sad lad fad fall", "ask dad add all", "lass fall salad", "a sad lad falls", "dad adds a salad" ] },
+  { title: "Top row: E and I, R and U", keys: "e i r u", lines: [
+    "eee iii eie iei", "rrr uuu rur uru", "er ir re ri ur", "fire ride rude", "red fur due ire" ] },
+  { title: "Top row: W and O, Q and P", keys: "w o q p", lines: [
+    "www ooo wow owo", "qqq ppp qpq pqp", "wo ow qw pq op", "word work pork", "powder power word" ] },
+  { title: "Top row: T and Y", keys: "t y", lines: [
+    "ttt yyy tyt yty", "ty ty yt yt tt yy", "try toy type yet", "your tyre story", "try to type it" ] },
+  { title: "Top row words", keys: "q w e r t y u i o p", lines: [
+    "the quick words", "you write poetry", "we type quite well", "your quiet power", "to write is super" ] },
+  { title: "Bottom row: V and M, B and N", keys: "v m b n", lines: [
+    "vvv mmm vmv mvm", "bbb nnn bnb nbn", "vb mn bv nm bn", "van man ban nab", "brave number van" ] },
+  { title: "Bottom row: C, X, Z and punctuation", keys: "c x z , . /", lines: [
+    "ccc xxx cxc xcx", "zzz ,,, z,z ,z,", "c. x. z. cxz zxc", "cat, fox, zebra.", "six zebras, cats." ] },
+  { title: "All the letters", keys: "a–z", lines: [
+    "the big jumpy fox", "five zebras jump", "quick brown fox jumps", "over the lazy dog", "pack my box with jugs" ] },
+  { title: "Sentences", keys: "Shift + .", lines: [
+    "The cat sat on the mat.", "I can type all by myself.", "We love to read good books.", "Typing fast is a super power.", "Practice makes me quicker every day." ] }
+];
+
+/* Which finger presses each key (for the hint line) */
+var FINGERS = {
+  "a": "Left pinky", "q": "Left pinky", "z": "Left pinky", "1": "Left pinky",
+  "s": "Left ring finger", "w": "Left ring finger", "x": "Left ring finger", "2": "Left ring finger",
+  "d": "Left middle finger", "e": "Left middle finger", "c": "Left middle finger", "3": "Left middle finger",
+  "f": "Left index finger", "r": "Left index finger", "t": "Left index finger",
+  "g": "Left index finger", "v": "Left index finger", "b": "Left index finger",
+  "j": "Right index finger", "u": "Right index finger", "y": "Right index finger",
+  "h": "Right index finger", "m": "Right index finger", "n": "Right index finger",
+  "k": "Right middle finger", "i": "Right middle finger", ",": "Right middle finger",
+  "l": "Right ring finger", "o": "Right ring finger", ".": "Right ring finger",
+  ";": "Right pinky", "p": "Right pinky", "/": "Right pinky", "'": "Right pinky",
+  " ": "Thumb"
+};
+var SHIFT_KEYS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+function fingerFor(ch) {
+  if (SHIFT_KEYS.indexOf(ch) >= 0) {
+    var lower = ch.toLowerCase();
+    var f = FINGERS[lower] || "";
+    var hand = f.indexOf("Left") === 0 ? "Right" : "Left";
+    return f + " + " + hand + " Shift";
+  }
+  return FINGERS[ch] || "";
+}
+
+/* ---------------- State ---------------- */
+var STORE_KEY = "typingTrainer.v1";
+var store = loadStore();
+var currentProfile = null;
+var session = null;
+
+function loadStore() {
+  try {
+    var raw = localStorage.getItem(STORE_KEY);
+    if (raw) {
+      var parsed = JSON.parse(raw);
+      if (!parsed.profiles) { parsed.profiles = []; }
+      if (!parsed.progress) { parsed.progress = {}; }
+      return parsed;
+    }
+  } catch (e) {}
+  return { lastProfile: null, profiles: [], progress: {} };
+}
+if (store.lastProfile && store.profiles.indexOf(store.lastProfile) >= 0) {
+  currentProfile = store.lastProfile;
+} else if (store.profiles.length) {
+  currentProfile = store.profiles[0];
+}
+function saveStore() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {}
+}
+function profileProgress(name) {
+  if (!store.progress[name]) { store.progress[name] = { stars: {} }; }
+  return store.progress[name];
+}
+function unlockedCount(name) {
+  var stars = profileProgress(name).stars;
+  var n = 1;
+  for (var i = 0; i < LESSONS.length; i++) {
+    if (stars[i]) { n = i + 2; }
+  }
+  return Math.min(n, LESSONS.length);
+}
+
+/* ---------------- Home screen ---------------- */
+var homeScreen = document.getElementById("home-screen");
+var practiceScreen = document.getElementById("practice-screen");
+var resultsScreen = document.getElementById("results-screen");
+
+function showScreen(which) {
+  homeScreen.classList.toggle("hidden", which !== "home");
+  practiceScreen.classList.toggle("hidden", which !== "practice");
+  resultsScreen.classList.toggle("hidden", which !== "results");
+}
+function starString(n) {
+  var s = "";
+  for (var i = 0; i < 3; i++) { s += i < n ? "★" : "☆"; }
+  return s;
+}
+function renderHome() {
+  document.getElementById("btn-remove-profile").classList.toggle("hidden", !currentProfile);
+  var pWrap = document.getElementById("profiles");
+  pWrap.innerHTML = "";
+  store.profiles.forEach(function (name) {
+    var done = Object.keys(profileProgress(name).stars).length;
+    var btn = document.createElement("button");
+    btn.className = "profile-btn" + (name === currentProfile ? " active" : "");
+    btn.innerHTML = "";
+    btn.appendChild(document.createTextNode(name));
+    var small = document.createElement("small");
+    small.textContent = done + " of " + LESSONS.length + " lessons done";
+    btn.appendChild(small);
+    btn.addEventListener("click", function () {
+      currentProfile = name;
+      store.lastProfile = name;
+      saveStore();
+      renderHome();
+    });
+    pWrap.appendChild(btn);
+  });
+
+  var lWrap = document.getElementById("lessons");
+  lWrap.innerHTML = "";
+  if (!currentProfile) {
+    var p = document.createElement("p");
+    p.className = "note";
+    p.textContent = "Type your name above and tap Join to create your player, then start with Lesson 1.";
+    lWrap.appendChild(p);
+    return;
+  }
+  var unlocked = unlockedCount(currentProfile);
+  var stars = profileProgress(currentProfile).stars;
+  LESSONS.forEach(function (lesson, i) {
+    var btn = document.createElement("button");
+    btn.className = "lesson-btn";
+    btn.disabled = i >= unlocked;
+    var num = document.createElement("span");
+    num.className = "num";
+    num.textContent = "Lesson " + (i + 1) + (i >= unlocked ? " 🔒" : "");
+    var t = document.createElement("span");
+    t.textContent = lesson.title;
+    var keys = document.createElement("span");
+    keys.className = "keys";
+    keys.textContent = "Keys: " + lesson.keys;
+    var st = document.createElement("span");
+    st.className = "stars";
+    st.textContent = stars[i] ? starString(stars[i]) : "";
+    btn.appendChild(num); btn.appendChild(t); btn.appendChild(keys); btn.appendChild(st);
+    btn.addEventListener("click", function () { startLesson(i); });
+    lWrap.appendChild(btn);
+  });
+}
+
+/* ---------------- Keyboard ---------------- */
+var KB_ROWS = [
+  ["q","w","e","r","t","y","u","i","o","p"],
+  ["a","s","d","f","g","h","j","k","l",";"],
+  ["z","x","c","v","b","n","m",",",".","/"]
+];
+var HOME_KEYS = { "a":1,"s":1,"d":1,"f":1,"j":1,"k":1,"l":1,";":1 };
+function renderKeyboard() {
+  var kb = document.getElementById("keyboard");
+  kb.innerHTML = "";
+  KB_ROWS.forEach(function (row) {
+    var div = document.createElement("div");
+    div.className = "kb-row";
+    row.forEach(function (k) {
+      var el = document.createElement("div");
+      el.className = "key" + (HOME_KEYS[k] ? " home" : "");
+      el.id = "key-" + k;
+      el.textContent = k;
+      div.appendChild(el);
+    });
+    kb.appendChild(div);
+  });
+  var spaceRow = document.createElement("div");
+  spaceRow.className = "kb-row";
+  var sp = document.createElement("div");
+  sp.className = "key space";
+  sp.id = "key-space";
+  sp.textContent = "space";
+  spaceRow.appendChild(sp);
+  kb.appendChild(spaceRow);
+}
+function highlightNextKey() {
+  var all = document.querySelectorAll(".key.next");
+  for (var i = 0; i < all.length; i++) { all[i].classList.remove("next"); }
+  if (!session) { return; }
+  var ch = session.lines[session.lineIdx][session.pos];
+  if (ch === undefined) { return; }
+  var id = ch === " " ? "key-space" : "key-" + ch.toLowerCase();
+  var el = document.getElementById(id);
+  if (el) { el.classList.add("next"); }
+  var hint = document.getElementById("finger-hint");
+  var f = fingerFor(ch);
+  hint.innerHTML = "";
+  hint.appendChild(document.createTextNode("Next: "));
+  var b = document.createElement("b");
+  b.textContent = ch === " " ? "space" : ch;
+  hint.appendChild(b);
+  if (f) { hint.appendChild(document.createTextNode(" — use your " + f.toLowerCase())); }
+}
+
+/* ---------------- Practice ---------------- */
+function startLesson(idx) {
+  session = {
+    lessonIdx: idx,
+    lineIdx: 0,
+    pos: 0,
+    lines: LESSONS[idx].lines.slice(),
+    correct: 0,
+    total: 0,
+    startedAt: null,
+    finished: false
+  };
+  document.getElementById("lesson-title").textContent =
+    "Lesson " + (idx + 1) + ": " + LESSONS[idx].title + " — " + currentProfile;
+  showScreen("practice");
+  renderKeyboard();
+  renderLine();
+  updateStats();
+}
+function renderLine() {
+  var target = document.getElementById("target");
+  target.innerHTML = "";
+  var text = session.lines[session.lineIdx];
+  for (var i = 0; i < text.length; i++) {
+    var span = document.createElement("span");
+    span.textContent = text[i];
+    span.id = "ch-" + i;
+    target.appendChild(span);
+  }
+  session.pos = 0;
+  markCurrent();
+  highlightNextKey();
+  document.getElementById("stat-line").textContent =
+    (session.lineIdx + 1) + " of " + session.lines.length;
+}
+function markCurrent() {
+  var text = session.lines[session.lineIdx];
+  for (var i = 0; i < text.length; i++) {
+    var span = document.getElementById("ch-" + i);
+    if (span) { span.classList.toggle("current", i === session.pos); }
+  }
+}
+function updateStats() {
+  var acc = session.total === 0 ? 100 : Math.round(100 * session.correct / session.total);
+  document.getElementById("stat-acc").textContent = acc;
+  var wpm = 0;
+  if (session.startedAt) {
+    var minutes = (Date.now() - session.startedAt) / 60000;
+    if (minutes > 0) { wpm = Math.round((session.correct / 5) / minutes); }
+  }
+  document.getElementById("stat-wpm").textContent = wpm;
+  var totalChars = session.lines.join(" ").length;
+  var doneChars = 0;
+  for (var i = 0; i < session.lineIdx; i++) { doneChars += session.lines[i].length + 1; }
+  doneChars += session.pos;
+  document.getElementById("progress-fill").style.width =
+    Math.min(100, Math.round(100 * doneChars / totalChars)) + "%";
+}
+function finishLesson() {
+  session.finished = true;
+  var acc = session.total === 0 ? 100 : Math.round(100 * session.correct / session.total);
+  var minutes = session.startedAt ? (Date.now() - session.startedAt) / 60000 : 0;
+  var wpm = minutes > 0 ? Math.round((session.correct / 5) / minutes) : 0;
+  var stars = 1;
+  if (acc >= 90) { stars = 2; }
+  if (acc >= 97 && wpm >= 8) { stars = 3; }
+  var prog = profileProgress(currentProfile);
+  var prev = prog.stars[session.lessonIdx] || 0;
+  if (stars > prev) { prog.stars[session.lessonIdx] = stars; }
+  saveStore();
+
+  document.getElementById("result-stars").textContent = starString(stars);
+  document.getElementById("result-title").textContent =
+    "Lesson " + (session.lessonIdx + 1) + " complete. Great typing, " + currentProfile + "!";
+  document.getElementById("result-wpm").textContent = wpm;
+  document.getElementById("result-acc").textContent = acc;
+  var msg = "Keep practising this lesson to earn more stars.";
+  if (stars === 3) { msg = "Amazing. Three stars!"; }
+  else if (stars === 2) { msg = "Well done. One more star is waiting when you make almost no mistakes."; }
+  document.getElementById("result-msg").textContent = msg;
+  var nextBtn = document.getElementById("btn-next");
+  var hasNext = session.lessonIdx + 1 < LESSONS.length;
+  nextBtn.classList.toggle("hidden", !hasNext);
+  showScreen("results");
+}
+document.addEventListener("keydown", function (e) {
+  if (!session || session.finished || practiceScreen.classList.contains("hidden")) { return; }
+  if (e.ctrlKey || e.metaKey || e.altKey) { return; }
+  var key = e.key;
+  if (key === "Backspace") { e.preventDefault(); return; }
+  if (key.length !== 1) { return; }
+  e.preventDefault();
+  if (!session.startedAt) { session.startedAt = Date.now(); }
+  var text = session.lines[session.lineIdx];
+  var expected = text[session.pos];
+  var span = document.getElementById("ch-" + session.pos);
+  session.total++;
+  if (key === expected) {
+    session.correct++;
+    if (span) { span.classList.add("done"); span.classList.remove("wrong"); }
+  } else {
+    if (span) { span.classList.add("wrong"); }
+  }
+  session.pos++;
+  if (session.pos >= text.length) {
+    if (session.lineIdx + 1 < session.lines.length) {
+      session.lineIdx++;
+      renderLine();
+    } else {
+      updateStats();
+      finishLesson();
+      return;
+    }
+  } else {
+    markCurrent();
+    highlightNextKey();
+  }
+  updateStats();
+});
+
+/* ---------------- Registration ---------------- */
+function registerProfile() {
+  var input = document.getElementById("new-name");
+  var name = input.value.trim().replace(/\s+/g, " ");
+  if (!name) { input.focus(); return; }
+  var lower = name.toLowerCase();
+  for (var i = 0; i < store.profiles.length; i++) {
+    if (store.profiles[i].toLowerCase() === lower) {
+      currentProfile = store.profiles[i];
+      store.lastProfile = currentProfile;
+      saveStore();
+      input.value = "";
+      renderHome();
+      return;
+    }
+  }
+  store.profiles.push(name);
+  profileProgress(name);
+  currentProfile = name;
+  store.lastProfile = name;
+  saveStore();
+  input.value = "";
+  renderHome();
+}
+document.getElementById("btn-register").addEventListener("click", registerProfile);
+document.getElementById("new-name").addEventListener("keydown", function (e) {
+  if (e.key === "Enter") { registerProfile(); }
+});
+document.getElementById("btn-remove-profile").addEventListener("click", function () {
+  if (!currentProfile) { return; }
+  if (!confirm("Remove " + currentProfile + " and their progress on this device?")) { return; }
+  store.profiles = store.profiles.filter(function (n) { return n !== currentProfile; });
+  delete store.progress[currentProfile];
+  currentProfile = store.profiles.length ? store.profiles[0] : null;
+  store.lastProfile = currentProfile;
+  saveStore();
+  renderHome();
+});
+
+/* ---------------- Buttons ---------------- */
+document.getElementById("btn-restart").addEventListener("click", function () {
+  if (session) { startLesson(session.lessonIdx); }
+});
+document.getElementById("btn-quit").addEventListener("click", function () {
+  session = null;
+  renderHome();
+  showScreen("home");
+});
+document.getElementById("btn-retry").addEventListener("click", function () {
+  if (session) { startLesson(session.lessonIdx); }
+});
+document.getElementById("btn-next").addEventListener("click", function () {
+  if (session) { startLesson(session.lessonIdx + 1); }
+});
+document.getElementById("btn-home").addEventListener("click", function () {
+  session = null;
+  renderHome();
+  showScreen("home");
+});
+
+renderHome();
+</script>
+</body>
+</html>
