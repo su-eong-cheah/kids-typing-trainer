@@ -94,9 +94,11 @@
   /* Road to 60 */
   .road-summary { color: #33506e; margin-bottom: 10px; }
   .srow {
-    display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+    display: flex; align-items: center; gap: 8px; padding: 7px 10px; flex-wrap: wrap;
     border: 2px solid #e3ecf5; border-radius: 10px; margin-bottom: 6px; background: #fff;
   }
+  .games-line { width: 100%; display: flex; gap: 6px; flex-wrap: wrap; }
+  .games-line .btn { font-size: 0.88rem; padding: 5px 10px; }
   .srow.cleared { border-color: #81c784; background: #f1f8e9; }
   .srow.next { border-color: #f9a825; background: #fffde7; }
   .srow.locked { opacity: 0.55; }
@@ -140,6 +142,63 @@
     background: #fff; font-size: 1.25rem; cursor: pointer; line-height: 1; padding: 0;
   }
   .scene.crashed { animation: sceneshake .5s ease; }
+  /* Word games (Balloon Pop, Space Defender, Pizza Orders) */
+  .wg-stage {
+    position: relative; height: 300px; border: 3px solid #d7e5f2; border-radius: 14px;
+    overflow: hidden; margin-bottom: 14px; background: linear-gradient(#bde6ff, #e8f7ff);
+  }
+  .wg-stage.wg-space { background: radial-gradient(circle at 20% 30%, #ffffff33 0 2px, transparent 3px), radial-gradient(circle at 70% 60%, #ffffff2e 0 2px, transparent 3px), radial-gradient(circle at 85% 15%, #ffffff40 0 1.5px, transparent 2.5px), linear-gradient(#0b1035, #1d2a5e); }
+  .wg-stage.wg-pizza { background: #f7e3c2; }
+  .wg-hud {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 5;
+    display: flex; justify-content: space-between; padding: 5px 10px;
+    background: rgba(31,45,61,.75); color: #fff; font-size: 0.88rem;
+  }
+  .wg-obj { position: absolute; width: 92px; margin-left: -46px; text-align: center; z-index: 2; }
+  .wg-obj .wg-word {
+    display: inline-block; margin-top: 2px; padding: 1px 7px; border-radius: 999px;
+    background: rgba(255,255,255,.92); color: #1f2d3d; font-weight: 700; font-size: 0.95rem;
+  }
+  .wg-obj.targeted .wg-word { outline: 3px solid #f9a825; }
+  .balloon-body {
+    width: 54px; height: 66px; margin: 0 auto; border-radius: 50% 50% 50% 50% / 55% 55% 45% 45%;
+    box-shadow: inset -8px -8px 0 rgba(0,0,0,.08);
+  }
+  .balloon-knot { width: 0; margin: 0 auto; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 9px solid #888; }
+  .ship-body {
+    width: 64px; height: 22px; margin: 14px auto 0; border-radius: 50%;
+    background: linear-gradient(#cfd8dc, #90a4ae); box-shadow: inset 0 -6px 0 rgba(0,0,0,.12);
+  }
+  .ship-dome {
+    width: 30px; height: 17px; margin: 0 auto -8px; border-radius: 50% 50% 0 0;
+    background: #81d4fa; position: relative; z-index: 1;
+  }
+  .wg-ground { position: absolute; left: 0; right: 0; bottom: 0; height: 20px; background: #7cb342; }
+  .wg-base {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 24px; z-index: 3;
+    background: repeating-linear-gradient(45deg, #37474f 0 14px, #455a64 14px 28px);
+    color: #fff; text-align: center; font-size: 0.8rem; line-height: 24px;
+  }
+  .wg-popped { transform: scale(1.35); opacity: 0; transition: transform .12s ease, opacity .12s ease; }
+  .pz-wrap { position: absolute; inset: 30px 0 0 0; display: flex; gap: 14px; padding: 12px; }
+  .pz-ticket {
+    flex: 0 0 42%; background: #fff; border-radius: 10px; padding: 10px 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,.15); color: #1f2d3d;
+  }
+  .pz-ticket h3 { font-size: 1rem; margin-bottom: 6px; }
+  .pz-ticket ul { list-style: none; }
+  .pz-ticket li { padding: 2px 0; font-size: 1.05rem; }
+  .pz-ticket li.done { color: #2e7d32; text-decoration: line-through; }
+  .pz-ticket li.now { font-weight: 800; }
+  .pz-patience { height: 10px; border-radius: 999px; background: #eee; margin-top: 10px; overflow: hidden; }
+  .pz-patience-fill { height: 100%; background: #66bb6a; border-radius: 999px; }
+  .pz-note { font-size: 0.78rem; color: #8d6e63; margin-top: 8px; }
+  .pz-pizza {
+    position: relative; flex: 1; max-width: 230px; aspect-ratio: 1; margin: auto;
+    border-radius: 50%; background: radial-gradient(circle, #f6c453 0 62%, #e8a33d 63% 78%, #c97b2d 79% 100%);
+    box-shadow: inset 0 0 0 6px rgba(255,255,255,.15);
+  }
+  .pz-top { position: absolute; width: 24px; height: 24px; border-radius: 50%; transform: translate(-50%, -50%); }
   @keyframes sceneshake {
     0%, 100% { transform: translateX(0); }
     25% { transform: translateX(-6px); }
@@ -301,6 +360,10 @@
         <span id="game-dist">Distance: 0 m</span>
         <span id="game-splats">Bugs: 0/9</span>
       </div>
+    </div>
+    <div class="wg-stage hidden" id="word-stage">
+      <div class="wg-hud" id="wg-hud"></div>
+      <div id="wg-field"></div>
     </div>
     <div class="target" id="target"></div>
     <div class="finger-hint" id="finger-hint"></div>
@@ -572,6 +635,14 @@ function splatSound() {
   noiseBurst(0.16, 0.12, 1500, 170);
   tone(190, 0.1, "sine", 0.06, 0, 65);
 }
+function popSound() {
+  noiseBurst(0.05, 0.12, 2600, 900, 0, "highpass");
+  tone(340, 0.09, "sine", 0.07, 0, 880);
+}
+function zapSound() {
+  tone(920, 0.13, "square", 0.045, 0, 140);
+  noiseBurst(0.08, 0.05, 2400, 500);
+}
 function crashSound() {
   tone(320, 0.55, "square", 0.045, 0, 52);
   noiseBurst(0.4, 0.07, 900, 110, 0.05);
@@ -657,7 +728,7 @@ document.addEventListener("pointerdown", function () { ensureAudio(); });
 function blankRecord(name) {
   return { name: name, pin: "", createdAt: 0, stars: {}, best: {}, badges: [],
            streakCount: 0, streakLast: "", weekKey: "", weekBest: {},
-           stages: {}, stageBest: {}, games: {}, gameBest: {} };
+           stages: {}, stageBest: {}, games: {}, gameBest: {}, minis: {}, miniBest: {} };
 }
 function normalizeRecord(raw, fallbackName) {
   var rec = blankRecord(raw && typeof raw.name === "string" && raw.name ? raw.name : fallbackName);
@@ -675,6 +746,8 @@ function normalizeRecord(raw, fallbackName) {
   if (raw.stageBest && typeof raw.stageBest === "object" && !Array.isArray(raw.stageBest)) { rec.stageBest = raw.stageBest; }
   if (raw.games && typeof raw.games === "object" && !Array.isArray(raw.games)) { rec.games = raw.games; }
   if (raw.gameBest && typeof raw.gameBest === "object" && !Array.isArray(raw.gameBest)) { rec.gameBest = raw.gameBest; }
+  if (raw.minis && typeof raw.minis === "object" && !Array.isArray(raw.minis)) { rec.minis = raw.minis; }
+  if (raw.miniBest && typeof raw.miniBest === "object" && !Array.isArray(raw.miniBest)) { rec.miniBest = raw.miniBest; }
   return rec;
 }
 function profileProgress(name) {
@@ -935,7 +1008,10 @@ var BADGES = [
   { id: "road4", emoji: "🏁", name: "Halfway to 60", how: "Clear Road stage 4 (25 WPM)" },
   { id: "road8", emoji: "🏆", name: "Sixty Club", how: "Clear Road stage 8 (60 WPM)" },
   { id: "drive1", emoji: "🛣️", name: "First Drive", how: "Finish a Bug Splat Drive run" },
-  { id: "clean", emoji: "✨", name: "Clean Windshield", how: "Finish a drive with no bugs on the windshield" }
+  { id: "clean", emoji: "✨", name: "Clean Windshield", how: "Finish a drive with no bugs on the windshield" },
+  { id: "pop10", emoji: "🎈", name: "Balloon Popper", how: "Pop 10 balloons in one Balloon Pop run" },
+  { id: "zap10", emoji: "🛸", name: "Base Defender", how: "Zap 10 ships in one Space Defender run" },
+  { id: "serve3", emoji: "🍕", name: "Pizza Pro", how: "Serve 3 customers in one Pizza Orders run" }
 ];
 function pointsForRun(correct, stars, wpm) {
   var starBonus = stars === 3 ? 50 : stars === 2 ? 25 : 10;
@@ -947,6 +1023,7 @@ function totalPoints(prog) {
   for (var k in prog.best) { t += prog.best[k]; }
   for (var k2 in prog.stageBest) { t += prog.stageBest[k2]; }
   for (var k3 in prog.gameBest) { t += prog.gameBest[k3]; }
+  for (var k4 in prog.miniBest) { t += prog.miniBest[k4]; }
   return t;
 }
 function rankFor(points) {
@@ -995,6 +1072,9 @@ function awardBadges(prog, ctx) {
     give("drive1");
     if (ctx.splats === 0) { give("clean"); }
   }
+  if (ctx && ctx.balloonPopped >= 10) { give("pop10"); }
+  if (ctx && ctx.spaceZapped >= 10) { give("zap10"); }
+  if (ctx && ctx.pizzaServed >= 3) { give("serve3"); }
   return earned;
 }
 function badgeById(id) {
@@ -1242,17 +1322,33 @@ function renderRoad() {
     var meta = document.createElement("span");
     meta.className = "smeta";
     var grec = prog.games[i];
+    var miniBits = [];
+    [["balloon", "🎈"], ["space", "🚀"], ["pizza", "🍕"]].forEach(function (gp) {
+      var mr = prog.minis[gp[0]] && prog.minis[gp[0]][i];
+      if (mr && mr.plays) { miniBits.push(gp[1] + mr.wpm); }
+    });
     meta.textContent = stage.label + " • " + (stage.secs >= 120 ? (stage.secs / 60) + " minute" : stage.secs + " second") + " test" +
       (rec && rec.tries ? " • tried " + rec.tries + (rec.tries === 1 ? " time" : " times") : "") +
-      (grec && grec.plays ? " • 🚗 game best " + grec.wpm + " WPM, " + grec.dist + " m" : "");
+      (grec && grec.plays ? " • 🚗 game best " + grec.wpm + " WPM, " + grec.dist + " m" : "") +
+      (miniBits.length ? " • games " + miniBits.join(" ") + " WPM" : "");
     mid.appendChild(nm); mid.appendChild(meta);
     row.appendChild(mid);
-    function driveButton() {
+    function gamesLine() {
+      var line = document.createElement("div");
+      line.className = "games-line";
       var db2 = document.createElement("button");
       db2.className = "btn btn-plain stage-drive";
       db2.textContent = "🚗 Drive";
       db2.addEventListener("click", function () { startGame(i); });
-      return db2;
+      line.appendChild(db2);
+      [["balloon", "🎈 Balloon Pop", "game-balloon"], ["space", "🚀 Space Defender", "game-space"], ["pizza", "🍕 Pizza Orders", "game-pizza"]].forEach(function (gp) {
+        var b = document.createElement("button");
+        b.className = "btn btn-plain " + gp[2];
+        b.textContent = gp[1];
+        b.addEventListener("click", function () { startWordGame(gp[0], i); });
+        line.appendChild(b);
+      });
+      return line;
     }
     if (isCleared) {
       var st = document.createElement("span");
@@ -1264,14 +1360,14 @@ function renderRoad() {
       again.textContent = "Beat it";
       again.addEventListener("click", function () { startTest(i); });
       row.appendChild(again);
-      row.appendChild(driveButton());
+      row.appendChild(gamesLine());
     } else if (unlocked) {
       var btn = document.createElement("button");
       btn.className = "btn btn-primary stage-start";
       btn.textContent = "Start test";
       btn.addEventListener("click", function () { startTest(i); });
       row.appendChild(btn);
-      row.appendChild(driveButton());
+      row.appendChild(gamesLine());
     } else {
       var lock = document.createElement("span");
       lock.className = "sstate";
@@ -1507,8 +1603,10 @@ function highlightNextKey() {
 function startLesson(idx) {
   stopTestTicker();
   stopGameTicker();
+  stopWordTicker();
   stopEngine();
   document.getElementById("game-scene").classList.add("hidden");
+  document.getElementById("word-stage").classList.add("hidden");
   session = {
     mode: "lesson",
     lessonIdx: idx,
@@ -1545,8 +1643,10 @@ function stopTestTicker() {
 function startTest(idx) {
   stopTestTicker();
   stopGameTicker();
+  stopWordTicker();
   stopEngine();
   document.getElementById("game-scene").classList.add("hidden");
+  document.getElementById("word-stage").classList.add("hidden");
   var stage = STAGES[idx];
   session = {
     mode: "test",
@@ -1594,6 +1694,7 @@ function markCurrent() {
   }
 }
 function updateStats() {
+  if (session && session.mode === "words") { updateWordStats(); return; }
   var acc = session.total === 0 ? 100 : Math.round(100 * session.correct / session.total);
   document.getElementById("stat-acc").textContent = acc;
   var wpm = 0;
@@ -1738,6 +1839,8 @@ function stopGameTicker() {
 function startGame(idx) {
   stopTestTicker();
   stopGameTicker();
+  stopWordTicker();
+  document.getElementById("word-stage").classList.add("hidden");
   var stage = STAGES[idx];
   session = {
     mode: "game",
@@ -1917,9 +2020,487 @@ function finishGame(crashed) {
   showScreen("results");
   if (crashed) { crashSound(); } else { celebrate(newBadges, totalBefore, totalAfter); }
 }
+/* ---------------- Word games: Balloon Pop, Space Defender, Pizza Orders ----------------
+   One shared engine: a target word at a time, typed letter by letter.
+   Balloon Pop and Space Defender drop words toward the ground or the
+   base; Pizza Orders types the items on an order ticket against a
+   patience bar. All three are stage practice like the drive: points,
+   badges, streak and weekly race, per-stage game bests, and the
+   timed test still certifies the stage. */
+var wordTimer = null;
+function stopWordTicker() {
+  if (wordTimer) { clearInterval(wordTimer); wordTimer = null; }
+}
+var BALLOON_COLORS = ["#ef5350", "#ab47bc", "#42a5f5", "#26a69a", "#ffa726", "#ec407a"];
+var PIZZA_TIERS = [
+  ["cheese", "ham", "corn", "peas"],
+  ["bacon", "onion", "tuna", "olive"],
+  ["pepper", "tomato", "basil", "salami", "garlic"],
+  ["chicken", "sausage", "spinach", "peppers"],
+  ["onions", "olives", "pineapple", "sweetcorn"],
+  ["pepperoni", "mozzarella", "jalapeno", "parmesan"]
+];
+var PIZZA_ORDER_ITEMS = [2, 3, 3, 4, 4, 5, 5, 5];
+var PIZZA_PATIENCE = [45, 45, 42, 40, 38, 36, 34, 32];
+var TOPPING_SPOTS = [[30, 30], [68, 26], [50, 52], [26, 66], [72, 68], [44, 36], [60, 44], [36, 48], [55, 70], [66, 58], [30, 44], [48, 24]];
+var TOPPING_COLORS = {
+  cheese: "#ffd54f", ham: "#ef9a9a", corn: "#fff176", peas: "#81c784", bacon: "#bcaaa4",
+  onion: "#ce93d8", tuna: "#90caf9", olive: "#4e5d3a", pepper: "#66bb6a", tomato: "#e57373",
+  basil: "#43a047", salami: "#a1887f", garlic: "#eeeeee", chicken: "#ffcc80", sausage: "#8d6e63",
+  spinach: "#2e7d32", peppers: "#ffa726", onions: "#ba68c8", olives: "#37474f", pineapple: "#ffee58",
+  sweetcorn: "#ffeb3b", pepperoni: "#c62828", mozzarella: "#fff8e1", jalapeno: "#33691e", parmesan: "#f5f5dc"
+};
+function stageWords(stage) {
+  var out = [];
+  stage.bank.forEach(function (entry) {
+    entry.replace(/[.,!?;:""]/g, "").split(/\s+/).forEach(function (w) { if (w) { out.push(w); } });
+  });
+  return out;
+}
+function startWordGame(game, idx) {
+  stopTestTicker();
+  stopGameTicker();
+  stopWordTicker();
+  stopEngine();
+  document.getElementById("game-scene").classList.add("hidden");
+  var stage = STAGES[idx];
+  session = {
+    mode: "words", game: game, stageIdx: idx, lessonIdx: idx,
+    correct: 0, total: 0, startedAt: null, finished: false,
+    durationSec: game === "pizza" ? 90 : 60,
+    targets: [], currentId: null, nextId: 1,
+    popped: 0, missed: 0, hits: 0, served: 0, lost: 0, itemsDone: 0,
+    spawnIn: 0, lastTick: null, wrongFlash: false,
+    orderNo: 0, patience: 0, patienceMax: 1, toppings: 0
+  };
+  var names = { balloon: "🎈 Balloon Pop", space: "🚀 Space Defender", pizza: "🍕 Pizza Orders" };
+  document.getElementById("lesson-title").textContent =
+    names[game] + ": Stage " + (idx + 1) + " (target " + stage.target + " WPM) — " + currentProfile;
+  var ws = document.getElementById("word-stage");
+  ws.classList.remove("hidden", "wg-space", "wg-pizza");
+  if (game === "space") { ws.classList.add("wg-space"); }
+  if (game === "pizza") { ws.classList.add("wg-pizza"); }
+  document.getElementById("wg-field").innerHTML = "";
+  if (document.activeElement && document.activeElement.blur) { document.activeElement.blur(); }
+  showScreen("practice");
+  renderKeyboard();
+  if (game === "pizza") {
+    startPizzaOrder();
+    dingSound(0.03, 0.4);
+  } else {
+    var strip = document.createElement("div");
+    strip.className = game === "balloon" ? "wg-ground" : "wg-base";
+    if (game === "space") { strip.textContent = "YOUR BASE"; }
+    document.getElementById("wg-field").appendChild(strip);
+    spawnFalling();
+    spawnFalling();
+    session.spawnIn = 2;
+  }
+  renderWordTarget();
+  updateWordHud();
+  updateStats();
+  wordTimer = setInterval(wordTick, 100);
+}
+function spawnFalling() {
+  var words = stageWords(STAGES[session.stageIdx]);
+  var active = session.targets.map(function (t) { return t.word; });
+  var word = null;
+  for (var tries = 0; tries < 12 && !word; tries++) {
+    var cand = words[Math.floor(Math.random() * words.length)];
+    if (active.indexOf(cand) < 0) { word = cand; }
+  }
+  if (!word) { return; }
+  var el = document.createElement("div");
+  el.className = "wg-obj";
+  if (session.game === "balloon") {
+    var body = document.createElement("div");
+    body.className = "balloon-body";
+    body.style.background = BALLOON_COLORS[Math.floor(Math.random() * BALLOON_COLORS.length)];
+    var knot = document.createElement("div");
+    knot.className = "balloon-knot";
+    el.appendChild(body);
+    el.appendChild(knot);
+  } else {
+    var dome = document.createElement("div");
+    dome.className = "ship-dome";
+    var ship = document.createElement("div");
+    ship.className = "ship-body";
+    el.appendChild(dome);
+    el.appendChild(ship);
+  }
+  var label = document.createElement("div");
+  label.className = "wg-word";
+  label.textContent = word;
+  el.appendChild(label);
+  el.style.left = (12 + Math.random() * 76) + "%";
+  el.style.top = "26px";
+  document.getElementById("wg-field").appendChild(el);
+  var speed = session.game === "balloon" ? 24 + session.stageIdx * 4 : 52 + session.stageIdx * 7;
+  session.targets.push({ id: session.nextId++, word: word, typed: 0, el: el, y: 26, speed: speed, kind: "fall" });
+}
+function startPizzaOrder() {
+  session.orderNo++;
+  var idx = session.stageIdx;
+  var pool = [];
+  for (var tier = 0; tier <= Math.min(PIZZA_TIERS.length - 1, idx); tier++) { pool = pool.concat(PIZZA_TIERS[tier]); }
+  var count = PIZZA_ORDER_ITEMS[idx];
+  var chosen = [];
+  var guard = 0;
+  while (chosen.length < count && guard < 80) {
+    guard++;
+    var w = pool[Math.floor(Math.random() * pool.length)];
+    if (chosen.indexOf(w) < 0) { chosen.push(w); }
+  }
+  session.targets = [];
+  session.currentId = null;
+  var field = document.getElementById("wg-field");
+  field.innerHTML = "";
+  var wrap = document.createElement("div");
+  wrap.className = "pz-wrap";
+  var ticket = document.createElement("div");
+  ticket.className = "pz-ticket";
+  var h = document.createElement("h3");
+  h.textContent = "Order #" + session.orderNo;
+  ticket.appendChild(h);
+  var ul = document.createElement("ul");
+  chosen.forEach(function (w) {
+    var li = document.createElement("li");
+    li.textContent = w;
+    ul.appendChild(li);
+    session.targets.push({ id: session.nextId++, word: w, typed: 0, el: li, kind: "item" });
+  });
+  ticket.appendChild(ul);
+  var pat = document.createElement("div");
+  pat.className = "pz-patience";
+  var fill = document.createElement("div");
+  fill.className = "pz-patience-fill";
+  fill.id = "pz-patience-fill";
+  fill.style.width = "100%";
+  pat.appendChild(fill);
+  ticket.appendChild(pat);
+  var note = document.createElement("p");
+  note.className = "pz-note";
+  note.textContent = "Cheah's Pizzeria house rule: no mushrooms, ever.";
+  ticket.appendChild(note);
+  var pizza = document.createElement("div");
+  pizza.className = "pz-pizza";
+  pizza.id = "pz-pizza";
+  wrap.appendChild(ticket);
+  wrap.appendChild(pizza);
+  field.appendChild(wrap);
+  session.patienceMax = PIZZA_PATIENCE[idx];
+  session.patience = session.patienceMax;
+  session.toppings = 0;
+  renderWordTarget();
+}
+function addTopping(word) {
+  var pizza = document.getElementById("pz-pizza");
+  if (!pizza) { return; }
+  var spot = TOPPING_SPOTS[session.toppings % TOPPING_SPOTS.length];
+  session.toppings++;
+  var dot = document.createElement("div");
+  dot.className = "pz-top";
+  dot.style.background = TOPPING_COLORS[word] || "#ef5350";
+  dot.style.left = spot[0] + "%";
+  dot.style.top = spot[1] + "%";
+  pizza.appendChild(dot);
+}
+function currentTarget() {
+  if (session.currentId) {
+    for (var i = 0; i < session.targets.length; i++) {
+      if (session.targets[i].id === session.currentId) { return session.targets[i]; }
+    }
+    session.currentId = null;
+  }
+  var best = null;
+  session.targets.forEach(function (t) {
+    if (t.kind === "item") { if (!best) { best = t; } }
+    else if (!best || best.kind !== "fall" || t.y > best.y) { best = t; }
+  });
+  if (best) { session.currentId = best.id; }
+  return best;
+}
+function removeTarget(t) {
+  session.targets = session.targets.filter(function (x) { return x.id !== t.id; });
+  if (session.currentId === t.id) { session.currentId = null; }
+}
+function renderWordTarget() {
+  var target = document.getElementById("target");
+  target.innerHTML = "";
+  var t = currentTarget();
+  session.targets.forEach(function (x) {
+    if (x.el) {
+      x.el.classList.toggle("targeted", x.id === session.currentId);
+      x.el.classList.toggle("now", x.id === session.currentId);
+    }
+  });
+  if (!t) {
+    var s = document.createElement("span");
+    s.textContent = session.game === "pizza" ? "Next order coming…" : "Get ready…";
+    target.appendChild(s);
+    updateWordGuides(null);
+    return;
+  }
+  for (var i = 0; i < t.word.length; i++) {
+    var sp = document.createElement("span");
+    sp.textContent = t.word[i];
+    if (i < t.typed) { sp.className = "done"; }
+    else if (i === t.typed) { sp.className = "current" + (session.wrongFlash ? " wrong" : ""); }
+    target.appendChild(sp);
+  }
+  updateWordGuides(t.word[t.typed]);
+}
+function updateWordGuides(ch) {
+  var all = document.querySelectorAll(".key.next");
+  for (var i = 0; i < all.length; i++) { all[i].classList.remove("next"); }
+  var hint = document.getElementById("finger-hint");
+  if (!ch) {
+    var fs = document.querySelectorAll(".finger.next");
+    for (var j = 0; j < fs.length; j++) { fs[j].classList.remove("next"); }
+    hint.textContent = "Type the word you see.";
+    return;
+  }
+  updateHands(ch);
+  var id = ch === " " ? "key-space" : "key-" + ch.toLowerCase();
+  var el = document.getElementById(id);
+  if (el) { el.classList.add("next"); }
+  var f = fingerFor(ch);
+  if (SHIFT_KEYS.indexOf(ch) >= 0 && f) {
+    var shEl = document.getElementById(f.indexOf("Right Shift") >= 0 ? "key-shift-right" : "key-shift-left");
+    if (shEl) { shEl.classList.add("next"); }
+  }
+  hint.innerHTML = "";
+  hint.appendChild(document.createTextNode("Next: "));
+  var b = document.createElement("b");
+  b.textContent = ch === " " ? "space" : ch;
+  hint.appendChild(b);
+  if (f) { hint.appendChild(document.createTextNode(" — use your " + f.toLowerCase())); }
+}
+function updateWordHud() {
+  var hud = document.getElementById("wg-hud");
+  if (session.game === "balloon") { hud.textContent = "🎈 Popped: " + session.popped + "    Landed: " + session.missed; }
+  else if (session.game === "space") { hud.textContent = "🚀 Zapped: " + session.popped + "    Base hits: " + session.hits + "/3"; }
+  else { hud.textContent = "🍕 Served: " + session.served + "    Customers lost: " + session.lost; }
+}
+function updateWordStats() {
+  var elapsed = session.startedAt ? (Date.now() - session.startedAt) / 1000 : 0;
+  var wpm = elapsed > 0 ? Math.round((session.correct / 5) / (elapsed / 60)) : 0;
+  document.getElementById("stat-wpm").textContent = wpm;
+  document.getElementById("stat-acc").textContent =
+    session.total === 0 ? 100 : Math.round(100 * session.correct / session.total);
+  document.getElementById("stat-line").textContent = session.game === "pizza"
+    ? "Order #" + Math.max(1, session.orderNo)
+    : (session.game === "balloon" ? "Popped " + session.popped : "Zapped " + session.popped);
+  var remain = Math.max(0, session.durationSec - Math.floor(elapsed));
+  document.getElementById("stat-time").textContent =
+    Math.floor(remain / 60) + ":" + ("0" + (remain % 60)).slice(-2);
+  document.getElementById("stat-time-wrap").classList.remove("hidden");
+  document.getElementById("progress-fill").style.width =
+    Math.min(100, Math.round(100 * elapsed / session.durationSec)) + "%";
+}
+function handleWordKey(key) {
+  if (session.finished) { return; }
+  ensureAudio();
+  if (!session.startedAt) { session.startedAt = Date.now(); }
+  if (Date.now() - session.startedAt >= session.durationSec * 1000) { finishWordGame(false); return; }
+  if (!key || key.length !== 1) { return; }
+  pressFingers(key);
+  var t = currentTarget();
+  if (!t) { return; }
+  var expected = t.word[t.typed];
+  session.total++;
+  if (key === expected) {
+    session.correct++;
+    session.wrongFlash = false;
+    clackSound(key);
+    t.typed++;
+    if (t.typed >= t.word.length) { wordComplete(t); return; }
+  } else {
+    session.wrongFlash = true;
+    buzzSound();
+  }
+  renderWordTarget();
+  updateStats();
+}
+function wordComplete(t) {
+  session.currentId = null;
+  if (t.kind === "item") {
+    session.itemsDone++;
+    dingSound(0.03, 0.4);
+    if (t.el) { t.el.classList.add("done"); }
+    addTopping(t.word);
+    removeTarget(t);
+    if (!session.targets.length) {
+      session.served++;
+      chimeSound();
+      startPizzaOrder();
+    }
+  } else {
+    if (session.game === "balloon") { popSound(); } else { zapSound(); }
+    session.popped++;
+    var elRef = t.el;
+    if (elRef) { elRef.classList.add("wg-popped"); }
+    removeTarget(t);
+    setTimeout(function () {
+      if (elRef && elRef.parentNode) { elRef.parentNode.removeChild(elRef); }
+    }, 130);
+  }
+  renderWordTarget();
+  updateWordHud();
+  updateStats();
+}
+function wordLanded(t) {
+  removeTarget(t);
+  if (t.el && t.el.parentNode) { t.el.parentNode.removeChild(t.el); }
+  if (session.game === "balloon") {
+    session.missed++;
+    tone(150, 0.15, "sine", 0.04, 0, 70);
+  } else {
+    session.hits++;
+    noiseBurst(0.2, 0.08, 800, 150);
+    tone(200, 0.2, "square", 0.04, 0, 60);
+    if (session.hits >= 3) { finishWordGame(true); return; }
+  }
+  renderWordTarget();
+  updateWordHud();
+}
+function wordTick() {
+  if (!session || session.mode !== "words" || session.finished) { stopWordTicker(); return; }
+  var now = Date.now();
+  var dt = session.lastTick ? Math.min(0.25, (now - session.lastTick) / 1000) : 0;
+  session.lastTick = now;
+  if (session.startedAt && dt > 0) {
+    var elapsed = (now - session.startedAt) / 1000;
+    if (session.game === "pizza") {
+      session.patience -= dt;
+      var fill = document.getElementById("pz-patience-fill");
+      if (fill) {
+        var pct = Math.max(0, 100 * session.patience / session.patienceMax);
+        fill.style.width = pct + "%";
+        fill.style.background = pct > 50 ? "#66bb6a" : pct > 25 ? "#ffa726" : "#ef5350";
+      }
+      if (session.patience <= 0) {
+        session.lost++;
+        buzzSound();
+        startPizzaOrder();
+      }
+    } else {
+      var ramp = 1 + elapsed / 120;
+      session.targets.slice().forEach(function (t) {
+        if (session.finished) { return; }
+        t.y += t.speed * ramp * dt;
+        t.el.style.top = t.y + "px";
+        if (t.y >= (session.game === "balloon" ? 185 : 200)) { wordLanded(t); }
+      });
+      if (session.finished) { return; }
+      session.spawnIn -= dt;
+      var maxAlive = session.game === "balloon" ? 4 : 5;
+      if (session.spawnIn <= 0 && session.targets.length < maxAlive) {
+        spawnFalling();
+        session.spawnIn = session.game === "balloon" ? 2.4 : 1.9;
+      }
+    }
+    if (elapsed >= session.durationSec) { finishWordGame(false); return; }
+  }
+  updateWordHud();
+  updateStats();
+}
+function finishWordGame(ended) {
+  if (session.finished) { return; }
+  session.finished = true;
+  stopWordTicker();
+  var game = session.game;
+  var idx = session.stageIdx;
+  var elapsed = session.startedAt ? (Date.now() - session.startedAt) / 1000 : 0;
+  var scored = Math.min(Math.max(elapsed, 0), session.durationSec);
+  var acc = session.total === 0 ? 100 : Math.round(100 * session.correct / session.total);
+  var wpm = scored > 0 ? Math.round((session.correct / 5) / (scored / 60)) : 0;
+  var prog = profileProgress(currentProfile);
+  var totalBefore = totalPoints(prog);
+  var speedBonus = wpm >= 30 ? 20 : wpm >= 20 ? 10 : wpm >= 12 ? 5 : 0;
+  var runPts = session.correct + speedBonus + (ended ? 0 : 25) +
+    (game === "pizza" ? session.served * 15 : 0);
+  if (!prog.minis[game]) { prog.minis[game] = {}; }
+  var rec = prog.minis[game][idx] || { wpm: 0, acc: 0, plays: 0, score: 0 };
+  rec.plays++;
+  if (wpm > rec.wpm) { rec.wpm = wpm; rec.acc = acc; }
+  if (runPts > rec.score) { rec.score = runPts; }
+  prog.minis[game][idx] = rec;
+  updateStreak(prog);
+  var key = game + idx;
+  if (runPts > (prog.miniBest[key] || 0)) { prog.miniBest[key] = runPts; }
+  var wk = currentWeekKey();
+  if (prog.weekKey !== wk) { prog.weekKey = wk; prog.weekBest = {}; }
+  var prefixes = { balloon: "ba", space: "sd", pizza: "pz" };
+  var weekKey = prefixes[game] + idx;
+  if (runPts > (prog.weekBest[weekKey] || 0)) { prog.weekBest[weekKey] = runPts; }
+  var newBadges = awardBadges(prog, {
+    acc: acc, wpm: wpm,
+    balloonPopped: game === "balloon" ? session.popped : 0,
+    spaceZapped: game === "space" ? session.popped : 0,
+    pizzaServed: game === "pizza" ? session.served : 0
+  });
+  persistPlayer(currentProfile);
+  pendingRemote = null;
+  var totalAfter = totalPoints(prog);
+  var delta = totalAfter - totalBefore;
+  var names = { balloon: "Balloon Pop", space: "Space Defender", pizza: "Pizza Orders" };
+  document.getElementById("result-stars").textContent = ended ? "💥" : "🏁";
+  document.getElementById("result-title").textContent = ended
+    ? "The base was overrun, " + currentProfile + "!"
+    : names[game] + " finished, " + currentProfile + "!";
+  document.getElementById("result-wpm").textContent = wpm;
+  document.getElementById("result-acc").textContent = acc;
+  var stage = STAGES[idx];
+  var msg;
+  if (game === "balloon") {
+    msg = "You popped " + session.popped + (session.popped === 1 ? " balloon" : " balloons") +
+      " and " + session.missed + " landed. ";
+  } else if (game === "space") {
+    msg = ended
+      ? "Three ships reached the base after you zapped " + session.popped + ". The base will be repaired for the next run. "
+      : "You zapped " + session.popped + " ships and the base took " + session.hits +
+        (session.hits === 1 ? " hit. " : " hits. ");
+  } else {
+    msg = "You served " + session.served + (session.served === 1 ? " customer" : " customers") +
+      ", " + session.lost + " walked away, and you typed " + session.itemsDone +
+      (session.itemsDone === 1 ? " item. " : " items. ");
+  }
+  msg += (wpm >= stage.target && acc >= STAGE_GATE_ACC)
+    ? "That is stage-test pace (" + stage.target + " WPM at " + STAGE_GATE_ACC + "%+)."
+    : "Your stage target is " + stage.target + " WPM at " + STAGE_GATE_ACC + "% accuracy.";
+  document.getElementById("result-msg").textContent = msg;
+  document.getElementById("result-points").textContent = delta > 0
+    ? "+" + delta + " points! You now have " + totalAfter + " points."
+    : "No new points this time. Your best " + names[game] + " on this stage is worth " +
+      (prog.miniBest[key] || 0) + " points. Beat it to earn more.";
+  var badgesEl = document.getElementById("result-badges");
+  if (newBadges.length) {
+    var parts = [];
+    newBadges.forEach(function (id) { var b = badgeById(id); if (b) { parts.push(b.emoji + " " + b.name); } });
+    badgesEl.textContent = (newBadges.length > 1 ? "New badges: " : "New badge: ") + parts.join("   ");
+    badgesEl.classList.remove("hidden");
+  } else {
+    badgesEl.textContent = "";
+    badgesEl.classList.add("hidden");
+  }
+  var bestEl = document.getElementById("result-best");
+  if (rec.plays > 1) {
+    bestEl.textContent = "Your best " + names[game] + " on this stage: " + rec.wpm + " WPM.";
+    bestEl.classList.remove("hidden");
+  } else {
+    bestEl.textContent = "";
+    bestEl.classList.add("hidden");
+  }
+  fillSaveNote();
+  document.getElementById("btn-next").classList.add("hidden");
+  showScreen("results");
+  if (ended) { crashSound(); } else { celebrate(newBadges, totalBefore, totalAfter); }
+}
 function finishLesson() {
   if (session.mode === "test") { finishTest(); return; }
   if (session.mode === "game") { finishGame(false); return; }
+  if (session.mode === "words") { finishWordGame(false); return; }
   if (session.finished) { return; }
   session.finished = true;
   var acc = session.total === 0 ? 100 : Math.round(100 * session.correct / session.total);
@@ -1996,6 +2577,7 @@ function finishLesson() {
 }
 document.addEventListener("keydown", function (e) {
   if (!session || session.finished || practiceScreen.classList.contains("hidden")) { return; }
+  if (session.mode === "words") { handleWordKey(e.key); return; }
   if ((session.mode === "test" || session.mode === "game") && session.startedAt &&
       Date.now() - session.startedAt >= session.durationSec * 1000) {
     finishLesson();
@@ -2177,11 +2759,13 @@ document.getElementById("btn-restart").addEventListener("click", function () {
   if (!session) { return; }
   if (session.mode === "test") { startTest(session.stageIdx); }
   else if (session.mode === "game") { startGame(session.stageIdx); }
+  else if (session.mode === "words") { startWordGame(session.game, session.stageIdx); }
   else { startLesson(session.lessonIdx); }
 });
 document.getElementById("btn-quit").addEventListener("click", function () {
   stopTestTicker();
   stopGameTicker();
+  stopWordTicker();
   stopEngine();
   session = null;
   renderHome();
@@ -2191,6 +2775,7 @@ document.getElementById("btn-retry").addEventListener("click", function () {
   if (!session) { return; }
   if (session.mode === "test") { startTest(session.stageIdx); }
   else if (session.mode === "game") { startGame(session.stageIdx); }
+  else if (session.mode === "words") { startWordGame(session.game, session.stageIdx); }
   else { startLesson(session.lessonIdx); }
 });
 document.getElementById("btn-next").addEventListener("click", function () {
