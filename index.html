@@ -845,6 +845,10 @@ function persistPlayer(name) {
   }
 }
 function deletePlayerEverywhere(name) {
+  /* A profile can only be deleted by someone who has unlocked it on
+     this device with its own PIN. Enforced here as well as in the
+     Remove button flow, so no path can delete a locked profile. */
+  if (!isUnlocked(name)) { return false; }
   if (backend === "cloud" && db) {
     db.collection("players").doc(docIdFor(name)).delete().catch(function () { saveError = true; });
   }
@@ -2684,12 +2688,22 @@ document.getElementById("new-pin").addEventListener("keydown", function (e) {
 /* PIN panel: in-page, never a browser dialog. */
 var pinTarget = null;
 var pinMode = "unlock";
-function openPinPanel(name, mode) {
+var pinPurpose = null;
+function openPinPanel(name, mode, purpose) {
   pinTarget = name;
   pinMode = mode;
-  document.getElementById("pin-title").textContent = mode === "set"
-    ? "Set a 4-number PIN for " + name + ", so only you can open your player on other computers."
-    : "Type " + name + "'s PIN to open this player.";
+  pinPurpose = purpose || null;
+  var title;
+  if (purpose === "remove") {
+    title = mode === "set"
+      ? "This player has no PIN yet. Set " + name + "'s PIN first, to show this is your player, before it can be removed."
+      : "Type " + name + "'s PIN to remove this player. Only its owner can remove it.";
+  } else {
+    title = mode === "set"
+      ? "Set a 4-number PIN for " + name + ", so only you can open your player on other computers."
+      : "Type " + name + "'s PIN to open this player.";
+  }
+  document.getElementById("pin-title").textContent = title;
   document.getElementById("btn-pin-go").textContent = mode === "set" ? "Set PIN and play" : "Unlock";
   document.getElementById("pin-error").classList.add("hidden");
   var input = document.getElementById("pin-input");
@@ -2699,6 +2713,7 @@ function openPinPanel(name, mode) {
 }
 function hidePinPanel() {
   pinTarget = null;
+  pinPurpose = null;
   document.getElementById("pin-panel").classList.add("hidden");
 }
 function submitPin() {
@@ -2719,12 +2734,15 @@ function submitPin() {
     err.classList.remove("hidden");
     return;
   }
+  var unlockedName = pinTarget;
+  var purpose = pinPurpose;
   markUnlocked(pinTarget);
   currentProfile = pinTarget;
   device.lastProfile = pinTarget;
   saveDevice();
   hidePinPanel();
   renderHome();
+  if (purpose === "remove" && currentProfile === unlockedName) { armRemove(); }
 }
 document.getElementById("btn-pin-go").addEventListener("click", submitPin);
 document.getElementById("btn-pin-cancel").addEventListener("click", hidePinPanel);
@@ -2733,11 +2751,24 @@ document.getElementById("pin-input").addEventListener("keydown", function (e) {
 });
 
 var removeArmed = false;
+function armRemove() {
+  if (!currentProfile) { return; }
+  removeArmed = true;
+  document.getElementById("btn-remove-profile").textContent = "Tap again to remove " + currentProfile;
+}
 document.getElementById("btn-remove-profile").addEventListener("click", function () {
   if (!currentProfile) { return; }
+  if (!isUnlocked(currentProfile)) {
+    /* Removing a profile requires its own PIN unlock on this device.
+       A locked profile goes to the PIN prompt first; a correct PIN
+       arms the removal, a wrong one arms nothing. A profile with no
+       PIN yet (an imported one) must be claimed with a PIN first. */
+    var rec = players[currentProfile];
+    openPinPanel(currentProfile, rec && rec.pin ? "unlock" : "set", "remove");
+    return;
+  }
   if (!removeArmed) {
-    removeArmed = true;
-    this.textContent = "Tap again to remove " + currentProfile;
+    armRemove();
     return;
   }
   removeArmed = false;
