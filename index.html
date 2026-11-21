@@ -537,7 +537,10 @@ function renderLadder() {
   fill("ladder-all", "total");
 }
 function renderHome() {
-  document.getElementById("btn-remove-profile").classList.toggle("hidden", !currentProfile);
+  var removeBtn = document.getElementById("btn-remove-profile");
+  removeBtn.classList.toggle("hidden", !currentProfile);
+  removeArmed = false;
+  removeBtn.textContent = "Remove player";
   renderPlayerCard();
   renderLadder();
   var pWrap = document.getElementById("profiles");
@@ -862,9 +865,15 @@ document.getElementById("btn-register").addEventListener("click", registerProfil
 document.getElementById("new-name").addEventListener("keydown", function (e) {
   if (e.key === "Enter") { registerProfile(); }
 });
+var removeArmed = false;
 document.getElementById("btn-remove-profile").addEventListener("click", function () {
   if (!currentProfile) { return; }
-  if (!confirm("Remove " + currentProfile + " and their progress on this device?")) { return; }
+  if (!removeArmed) {
+    removeArmed = true;
+    this.textContent = "Tap again to remove " + currentProfile;
+    return;
+  }
+  removeArmed = false;
   store.profiles = store.profiles.filter(function (n) { return n !== currentProfile; });
   delete store.progress[currentProfile];
   currentProfile = store.profiles.length ? store.profiles[0] : null;
