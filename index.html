@@ -228,8 +228,8 @@ function loadStore() {
     var raw = localStorage.getItem(STORE_KEY);
     if (raw) {
       var parsed = JSON.parse(raw);
-      if (!parsed.profiles) { parsed.profiles = []; }
-      if (!parsed.progress) { parsed.progress = {}; }
+      if (!Array.isArray(parsed.profiles)) { parsed.profiles = []; }
+      if (!parsed.progress || typeof parsed.progress !== "object" || Array.isArray(parsed.progress)) { parsed.progress = {}; }
       return parsed;
     }
   } catch (e) {}
@@ -245,6 +245,7 @@ function saveStore() {
 }
 function profileProgress(name) {
   if (!store.progress[name]) { store.progress[name] = { stars: {} }; }
+  if (!store.progress[name].stars || typeof store.progress[name].stars !== "object") { store.progress[name].stars = {}; }
   return store.progress[name];
 }
 function unlockedCount(name) {
@@ -389,6 +390,7 @@ function startLesson(idx) {
   };
   document.getElementById("lesson-title").textContent =
     "Lesson " + (idx + 1) + ": " + LESSONS[idx].title + " — " + currentProfile;
+  if (document.activeElement && document.activeElement.blur) { document.activeElement.blur(); }
   showScreen("practice");
   renderKeyboard();
   renderLine();
