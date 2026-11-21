@@ -91,6 +91,60 @@
   .lrow .lmeta { color: #5a6b7d; font-size: 0.82rem; display: block; }
   .lrow .lpts { margin-left: auto; font-weight: 700; color: #1565c0; white-space: nowrap; }
   @media (max-width: 640px) { .ladder-cols { grid-template-columns: 1fr; } }
+  /* Road to 60 */
+  .road-summary { color: #33506e; margin-bottom: 10px; }
+  .srow {
+    display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+    border: 2px solid #e3ecf5; border-radius: 10px; margin-bottom: 6px; background: #fff;
+  }
+  .srow.cleared { border-color: #81c784; background: #f1f8e9; }
+  .srow.next { border-color: #f9a825; background: #fffde7; }
+  .srow.locked { opacity: 0.55; }
+  .srow .sname { font-weight: 700; }
+  .srow .smeta { color: #5a6b7d; font-size: 0.82rem; display: block; }
+  .srow .sstate { margin-left: auto; font-size: 0.9rem; color: #33506e; white-space: nowrap; }
+  .srow .stage-start { margin-left: auto; }
+  .srow .stage-drive { margin-left: 6px; }
+  /* Bug Splat Drive scene */
+  .scene {
+    position: relative; height: 170px; border: 6px solid #33506e; border-radius: 18px;
+    overflow: hidden; margin-bottom: 14px;
+    background: linear-gradient(#aee2ff 0 55%, #8fce6e 55% 100%);
+  }
+  .scene .road {
+    position: absolute; left: 50%; bottom: 0; width: 46%; height: 46%;
+    transform: translateX(-50%); background: #6b7280;
+    clip-path: polygon(38% 0, 62% 0, 100% 100%, 0 100%);
+  }
+  .scene .road-line {
+    position: absolute; left: 50%; bottom: 0; width: 6px; height: 46%;
+    transform: translateX(-50%);
+    background: repeating-linear-gradient(#ffffff 0 14px, transparent 14px 28px);
+  }
+  .scene .dashbar {
+    position: absolute; left: 0; right: 0; bottom: 0; display: flex;
+    justify-content: space-around; background: rgba(31,45,61,.88); color: #fff;
+    padding: 5px 8px; font-size: 0.9rem;
+  }
+  .tree { position: absolute; width: 14px; margin-left: -7px; pointer-events: none; }
+  .tree .foliage { width: 26px; height: 26px; border-radius: 50%; background: #3e9c4f; margin-left: -6px; }
+  .tree .trunk { width: 5px; height: 10px; background: #7a5230; margin: 0 auto; }
+  .splat {
+    position: absolute; pointer-events: none;
+    background: radial-gradient(circle at 42% 38%, rgba(96,118,32,.9) 0 32%, rgba(74,94,24,.75) 55%, rgba(74,94,24,0) 72%);
+    border-radius: 58% 42% 55% 45% / 52% 60% 40% 48%;
+  }
+  .sound-btn {
+    position: fixed; top: 10px; right: 10px; z-index: 60;
+    width: 44px; height: 44px; border-radius: 50%; border: 2px solid #d7e5f2;
+    background: #fff; font-size: 1.25rem; cursor: pointer; line-height: 1; padding: 0;
+  }
+  .scene.crashed { animation: sceneshake .5s ease; }
+  @keyframes sceneshake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    75% { transform: translateX(6px); }
+  }
   /* Practice */
   .hidden { display: none !important; }
   .practice-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
@@ -174,6 +228,7 @@
   <h1>⌨️ Typing Trainer</h1>
   <p>Learn to type without looking at the keys. Join with your name, pick a lesson, and go.</p>
 </header>
+<button id="btn-sound" class="sound-btn" aria-label="Sound on. Tap to mute.">🔊</button>
 
 <div class="card">
   <!-- Home screen -->
@@ -207,6 +262,12 @@
       <div class="badges" id="pc-badges"></div>
     </div>
     <div class="lessons" id="lessons"></div>
+    <div class="player-card hidden" id="road-card">
+      <div class="ladder-head">🛣️ Road to 60 WPM</div>
+      <p class="road-summary" id="road-summary"></p>
+      <div id="road-stages"></div>
+      <p class="note">A stage clears when you reach its speed target with at least 95% accuracy. Fast and careful beats fast and messy.</p>
+    </div>
     <div class="player-card hidden" id="ladder-card">
       <div class="ladder-head">🏆 Family Ladder</div>
       <div class="ladder-cols">
@@ -226,9 +287,21 @@
         <span>Speed: <b id="stat-wpm">0</b> wpm</span>
         <span>Accuracy: <b id="stat-acc">100</b>%</span>
         <span>Line: <b id="stat-line">1</b></span>
+        <span id="stat-time-wrap" class="hidden">Time left: <b id="stat-time">1:00</b></span>
       </div>
     </div>
     <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+    <div class="scene hidden" id="game-scene">
+      <div class="road"></div>
+      <div class="road-line" id="road-line"></div>
+      <div id="scenery"></div>
+      <div id="splats"></div>
+      <div class="dashbar">
+        <span id="game-speed">Speed: 0 mph</span>
+        <span id="game-dist">Distance: 0 m</span>
+        <span id="game-splats">Bugs: 0/9</span>
+      </div>
+    </div>
     <div class="target" id="target"></div>
     <div class="finger-hint" id="finger-hint"></div>
     <div class="keyboard" id="keyboard"></div>
@@ -384,19 +457,207 @@ function loadDevice() {
         return {
           lastProfile: typeof p.lastProfile === "string" ? p.lastProfile : null,
           unlocked: Array.isArray(p.unlocked) ? p.unlocked : [],
-          importedToCloud: p.importedToCloud === true
+          importedToCloud: p.importedToCloud === true,
+          sound: p.sound !== false
         };
       }
     }
   } catch (e) {}
-  return { lastProfile: null, unlocked: [], importedToCloud: false };
+  return { lastProfile: null, unlocked: [], importedToCloud: false, sound: true };
 }
 function saveDevice() {
   try { localStorage.setItem(DEVICE_KEY, JSON.stringify(device)); } catch (e) {}
 }
+
+/* ---------------- Sound (WebAudio, all synthesized) ----------------
+   No audio files. The context is created lazily on the first user
+   gesture (browsers block audio before one), clicks are throttled
+   so fast typing cannot stack them into noise, and everything runs
+   through one master gain so the mute is absolute. The on/off choice
+   is remembered per device. On by default. */
+var audioCtx = null;
+var masterGain = null;
+var soundOn = device.sound !== false;
+var lastClickAt = -100;
+function ensureAudio() {
+  if (audioCtx) {
+    if (audioCtx.state === "suspended") { audioCtx.resume(); }
+    return audioCtx;
+  }
+  var AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) { return null; }
+  try {
+    audioCtx = new AC();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = soundOn ? 0.9 : 0;
+    masterGain.connect(audioCtx.destination);
+  } catch (e) {
+    audioCtx = null;
+    return null;
+  }
+  return audioCtx;
+}
+function tone(freq, dur, type, vol, delay, slideTo) {
+  if (!soundOn) { return; }
+  var ctx = ensureAudio();
+  if (!ctx) { return; }
+  var t0 = ctx.currentTime + (delay || 0);
+  var o = ctx.createOscillator();
+  var g = ctx.createGain();
+  o.type = type || "sine";
+  o.frequency.setValueAtTime(freq, t0);
+  if (slideTo) { o.frequency.exponentialRampToValueAtTime(Math.max(20, slideTo), t0 + dur); }
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(vol, t0 + 0.008);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g);
+  g.connect(masterGain);
+  o.start(t0);
+  o.stop(t0 + dur + 0.05);
+}
+function noiseBurst(dur, vol, fromFreq, toFreq, delay, filterType) {
+  if (!soundOn) { return; }
+  var ctx = ensureAudio();
+  if (!ctx) { return; }
+  var t0 = ctx.currentTime + (delay || 0);
+  var len = Math.max(1, Math.floor(ctx.sampleRate * dur));
+  var buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  var data = buf.getChannelData(0);
+  for (var i = 0; i < len; i++) { data[i] = Math.random() * 2 - 1; }
+  var src = ctx.createBufferSource();
+  src.buffer = buf;
+  var f = ctx.createBiquadFilter();
+  f.type = filterType || "lowpass";
+  f.frequency.setValueAtTime(fromFreq, t0);
+  f.frequency.exponentialRampToValueAtTime(Math.max(30, toFreq), t0 + dur);
+  var g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(vol, t0 + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  src.connect(f);
+  f.connect(g);
+  g.connect(masterGain);
+  src.start(t0);
+  src.stop(t0 + dur + 0.05);
+}
+/* The keyboard sounds like a typewriter: a mechanical clack per
+   letter (a bright noise snap over a low knock), a lower thunk for
+   the space bar, the margin bell when a line ends, and a carriage
+   zip plus bell when a lesson or test ends. Mistakes keep the buzz
+   and the splat, so an error never sounds like a reward. */
+function clackSound(key) {
+  var now = performance.now();
+  if (now - lastClickAt < 35) { return; }
+  lastClickAt = now;
+  if (key === " ") {
+    tone(120, 0.07, "sine", 0.07, 0, 55);
+    noiseBurst(0.03, 0.05, 500, 200);
+  } else {
+    noiseBurst(0.03, 0.09, 3200, 1800, 0, "highpass");
+    tone(205 + Math.random() * 30, 0.05, "sine", 0.05, 0, 105);
+  }
+}
+function dingSound(vol, dur, delay) {
+  tone(1568, dur, "sine", vol, delay || 0);
+  tone(2637, dur * 0.55, "sine", vol * 0.4, delay || 0);
+}
+function zipSound() {
+  noiseBurst(0.22, 0.03, 500, 2600, 0, "bandpass");
+}
+function buzzSound() {
+  tone(130, 0.14, "sawtooth", 0.04);
+  tone(98, 0.14, "sawtooth", 0.03);
+}
+function splatSound() {
+  noiseBurst(0.16, 0.12, 1500, 170);
+  tone(190, 0.1, "sine", 0.06, 0, 65);
+}
+function crashSound() {
+  tone(320, 0.55, "square", 0.045, 0, 52);
+  noiseBurst(0.4, 0.07, 900, 110, 0.05);
+}
+function chimeSound() {
+  tone(523.25, 0.18, "sine", 0.055, 0);
+  tone(659.25, 0.18, "sine", 0.055, 0.09);
+  tone(783.99, 0.26, "sine", 0.055, 0.18);
+}
+function fanfareSound() {
+  tone(523.25, 0.16, "triangle", 0.06, 0);
+  tone(659.25, 0.16, "triangle", 0.06, 0.08);
+  tone(783.99, 0.16, "triangle", 0.06, 0.16);
+  tone(1046.5, 0.3, "triangle", 0.065, 0.24);
+  tone(1318.5, 0.34, "sine", 0.04, 0.32);
+}
+function rankIndexFor(points) {
+  var idx = 0;
+  RANKS.forEach(function (r, i) { if (points >= r.at) { idx = i; } });
+  return idx;
+}
+function celebrate(newBadges, totalBefore, totalAfter, base) {
+  if (newBadges.length || rankIndexFor(totalAfter) > rankIndexFor(totalBefore)) {
+    fanfareSound();
+  } else if (base === "typewriter") {
+    zipSound();
+    dingSound(0.045, 0.8, 0.16);
+  } else {
+    chimeSound();
+  }
+}
+/* Engine hum for the driving game: one quiet sawtooth through a
+   lowpass, pitch following the car's speed. Gain is very low; the
+   mute silences it with everything else. */
+var engineOsc = null;
+var engineGainNode = null;
+function startEngine() {
+  var ctx = ensureAudio();
+  if (!ctx || engineOsc) { return; }
+  engineOsc = ctx.createOscillator();
+  engineOsc.type = "sawtooth";
+  engineOsc.frequency.value = 42;
+  var f = ctx.createBiquadFilter();
+  f.type = "lowpass";
+  f.frequency.value = 220;
+  engineGainNode = ctx.createGain();
+  engineGainNode.gain.value = 0;
+  engineOsc.connect(f);
+  f.connect(engineGainNode);
+  engineGainNode.connect(masterGain);
+  engineOsc.start();
+}
+function updateEngine(speed) {
+  if (!engineOsc || !audioCtx) { return; }
+  var t = audioCtx.currentTime;
+  engineOsc.frequency.setTargetAtTime(42 + speed * 1.8, t, 0.1);
+  engineGainNode.gain.setTargetAtTime(soundOn ? 0.016 : 0, t, 0.1);
+}
+function stopEngine() {
+  if (engineOsc) {
+    try { engineOsc.stop(); } catch (e) {}
+    engineOsc = null;
+    engineGainNode = null;
+  }
+}
+function setSound(on) {
+  soundOn = on;
+  device.sound = on;
+  saveDevice();
+  var btn = document.getElementById("btn-sound");
+  btn.textContent = on ? "🔊" : "🔇";
+  btn.setAttribute("aria-label", on ? "Sound on. Tap to mute." : "Sound off. Tap to unmute.");
+  if (masterGain) { masterGain.gain.value = on ? 0.9 : 0; }
+  if (on) { ensureAudio(); }
+}
+document.getElementById("btn-sound").addEventListener("click", function () { setSound(!soundOn); });
+document.addEventListener("pointerdown", function () { ensureAudio(); });
+(function initSoundButton() {
+  var btn = document.getElementById("btn-sound");
+  btn.textContent = soundOn ? "🔊" : "🔇";
+  btn.setAttribute("aria-label", soundOn ? "Sound on. Tap to mute." : "Sound off. Tap to unmute.");
+})();
 function blankRecord(name) {
   return { name: name, pin: "", createdAt: 0, stars: {}, best: {}, badges: [],
-           streakCount: 0, streakLast: "", weekKey: "", weekBest: {} };
+           streakCount: 0, streakLast: "", weekKey: "", weekBest: {},
+           stages: {}, stageBest: {}, games: {}, gameBest: {} };
 }
 function normalizeRecord(raw, fallbackName) {
   var rec = blankRecord(raw && typeof raw.name === "string" && raw.name ? raw.name : fallbackName);
@@ -410,6 +671,10 @@ function normalizeRecord(raw, fallbackName) {
   if (typeof raw.streakLast === "string") { rec.streakLast = raw.streakLast; }
   if (typeof raw.weekKey === "string") { rec.weekKey = raw.weekKey; }
   if (raw.weekBest && typeof raw.weekBest === "object" && !Array.isArray(raw.weekBest)) { rec.weekBest = raw.weekBest; }
+  if (raw.stages && typeof raw.stages === "object" && !Array.isArray(raw.stages)) { rec.stages = raw.stages; }
+  if (raw.stageBest && typeof raw.stageBest === "object" && !Array.isArray(raw.stageBest)) { rec.stageBest = raw.stageBest; }
+  if (raw.games && typeof raw.games === "object" && !Array.isArray(raw.games)) { rec.games = raw.games; }
+  if (raw.gameBest && typeof raw.gameBest === "object" && !Array.isArray(raw.gameBest)) { rec.gameBest = raw.gameBest; }
   return rec;
 }
 function profileProgress(name) {
@@ -665,7 +930,12 @@ var BADGES = [
   { id: "bottom", emoji: "⬇️", name: "Bottom Row Star", how: "Finish lessons 10 and 11" },
   { id: "streak3", emoji: "🔥", name: "3-Day Streak", how: "Practise on 3 days in a row" },
   { id: "streak7", emoji: "💪", name: "Super Streak", how: "Practise on 7 days in a row" },
-  { id: "grad", emoji: "🎓", name: "Typing Graduate", how: "Finish all 13 lessons" }
+  { id: "grad", emoji: "🎓", name: "Typing Graduate", how: "Finish all 13 lessons" },
+  { id: "road1", emoji: "🚗", name: "On the Road", how: "Clear Road stage 1" },
+  { id: "road4", emoji: "🏁", name: "Halfway to 60", how: "Clear Road stage 4 (25 WPM)" },
+  { id: "road8", emoji: "🏆", name: "Sixty Club", how: "Clear Road stage 8 (60 WPM)" },
+  { id: "drive1", emoji: "🛣️", name: "First Drive", how: "Finish a Bug Splat Drive run" },
+  { id: "clean", emoji: "✨", name: "Clean Windshield", how: "Finish a drive with no bugs on the windshield" }
 ];
 function pointsForRun(correct, stars, wpm) {
   var starBonus = stars === 3 ? 50 : stars === 2 ? 25 : 10;
@@ -675,6 +945,8 @@ function pointsForRun(correct, stars, wpm) {
 function totalPoints(prog) {
   var t = 0;
   for (var k in prog.best) { t += prog.best[k]; }
+  for (var k2 in prog.stageBest) { t += prog.stageBest[k2]; }
+  for (var k3 in prog.gameBest) { t += prog.gameBest[k3]; }
   return t;
 }
 function rankFor(points) {
@@ -714,6 +986,15 @@ function awardBadges(prog, ctx) {
   if (prog.streakCount >= 3) { give("streak3"); }
   if (prog.streakCount >= 7) { give("streak7"); }
   if (doneCount >= LESSONS.length) { give("grad"); }
+  var clearedStages = 0;
+  for (var sk in prog.stages) { if (prog.stages[sk] && prog.stages[sk].cleared) { clearedStages++; } }
+  if (clearedStages >= 1) { give("road1"); }
+  if (clearedStages >= 4) { give("road4"); }
+  if (clearedStages >= STAGES.length) { give("road8"); }
+  if (ctx && ctx.gameFinish) {
+    give("drive1");
+    if (ctx.splats === 0) { give("clean"); }
+  }
   return earned;
 }
 function badgeById(id) {
@@ -739,6 +1020,81 @@ function totalStars(prog) {
   var t = 0;
   for (var k in prog.stars) { t += prog.stars[k]; }
   return t;
+}
+
+/* ---------------- Road to 60 WPM ----------------
+   The fluency program that follows the 13 key lessons. Eight timed
+   stages from 10 to 60 WPM. A stage clears only at its target speed
+   AND at least 95% accuracy, so speed never pays without care.
+   Stage 1 opens once all 13 lessons are finished; each stage then
+   unlocks the next. Best WPM and accuracy per stage are stored on
+   the player's record, next to the per-lesson bests. */
+var STAGE_GATE_ACC = 95;
+var STAGES = [
+  { target: 10, secs: 60, label: "Common words", bank: [
+    "the","of","and","a","to","in","is","you","that","it","he","was","for","on","are","as",
+    "with","his","they","at","be","this","have","from","or","one","had","by","but","not",
+    "what","all","were","we","when","your","can","said","there","use","an","each","which",
+    "she","do","how","their","will","up","other","about" ] },
+  { target: 15, secs: 60, label: "More common words", bank: [
+    "would","make","like","just","know","take","into","year","see","him","time","could",
+    "now","than","first","been","its","who","find","long","down","day","did","get","come",
+    "made","may","part","over","new","sound","take","only","little","work","place","live",
+    "back","give","most","very","after","thing","our","think","say","great","where","help" ] },
+  { target: 20, secs: 60, label: "Short phrases", bank: [
+    "in the sun","on my way","a big red ball","we can play","look at me","the cat sat",
+    "i like to read","we went home","she has a dog","he ran fast","it is time","you and me",
+    "we are friends","the bird can fly","a cup of milk","we play outside","up the hill",
+    "down the road","a good book","my best friend","in the park","on the bus" ] },
+  { target: 25, secs: 60, label: "Longer phrases", bank: [
+    "the quick brown fox","practice makes me faster","we love to read books",
+    "the dog ran to the park","my friend has a red bike","we ate lunch at school",
+    "the rain fell all day","i can type with care","we saw a big blue whale",
+    "she plays the piano well","the sun came up early","we walked home together" ] },
+  { target: 30, secs: 90, label: "Sentences", bank: [
+    "The cat sat on the mat.","We love to read good books.","My friend rides a red bike.",
+    "The sun is warm today.","Birds fly over the tall trees.","I can type all by myself.",
+    "We ate lunch in the park.","The dog ran after the ball.","She reads a story every night.",
+    "We play outside after school." ] },
+  { target: 40, secs: 120, label: "Longer sentences", bank: [
+    "Typing quickly takes practice every single day.","The quick brown fox jumps over the lazy dog.",
+    "We packed sandwiches and juice for the picnic.","My sister plays piano beautifully in the evening.",
+    "The library has thousands of wonderful stories.","Careful fingers make fewer mistakes than fast ones.",
+    "The rain tapped softly on the window all morning.","We rode our bikes along the river path." ] },
+  { target: 50, secs: 120, label: "Paragraphs", bank: [
+    "When we practise typing every day, our fingers learn where every key lives. Soon we do not need to look down at all. Our eyes stay on the words, and the words flow onto the screen as fast as we can think them. That is when typing becomes a real super power.",
+    "A good typist does not rush. The hands stay calm, the fingers stay close to the home row, and each key gets the same steady press. Speed grows by itself when the rhythm is smooth and the eyes never hunt for the next letter." ] },
+  { target: 60, secs: 180, label: "Longer paragraphs", bank: [
+    "Speed means nothing without accuracy. The fastest typists in the world keep their eyes on the text, keep a steady rhythm, and almost never stop to fix mistakes. They learned one key at a time, then one word at a time, until whole sentences felt easy. Sixty words a minute is a goal worth chasing, and every careful practice brings it closer.",
+    "Think of the road to sixty as a staircase, not a cliff. Each stage asks for a little more speed and the same high care as the stage before. Some days the fingers fly, and some days they stumble, but the best score only ever moves up, so every honest try counts for something." ] }
+];
+function stageText(stage) {
+  var pool = stage.bank.slice();
+  var text = "";
+  var guard = 0;
+  while (text.length < 1000 && guard < 60) {
+    guard++;
+    for (var j = pool.length - 1; j > 0; j--) {
+      var k = Math.floor(Math.random() * (j + 1));
+      var tmp = pool[j]; pool[j] = pool[k]; pool[k] = tmp;
+    }
+    for (var i = 0; i < pool.length && text.length < 1100; i++) {
+      text += (text ? " " : "") + pool[i];
+    }
+  }
+  return text;
+}
+function stageUnlocked(prog, i) {
+  if (i === 0) { return Object.keys(prog.stars).length >= LESSONS.length; }
+  var prev = prog.stages[i - 1];
+  return !!(prev && prev.cleared);
+}
+function clearedStageCount(prog) {
+  var n = 0;
+  for (var i = 0; i < STAGES.length; i++) {
+    if (prog.stages[i] && prog.stages[i].cleared) { n++; }
+  }
+  return n;
 }
 
 /* ---------------- Home screen ---------------- */
@@ -855,6 +1211,76 @@ function renderLadder() {
   fill("ladder-week", "week");
   fill("ladder-all", "total");
 }
+function renderRoad() {
+  var card = document.getElementById("road-card");
+  if (!currentProfile) { card.classList.add("hidden"); return; }
+  card.classList.remove("hidden");
+  var prog = profileProgress(currentProfile);
+  var graduated = Object.keys(prog.stars).length >= LESSONS.length;
+  var cleared = clearedStageCount(prog);
+  var summary = document.getElementById("road-summary");
+  if (!graduated) {
+    summary.textContent = "Finish all 13 lessons to start the Road. The lessons teach your fingers where the keys are; the Road turns that into speed.";
+  } else if (cleared >= STAGES.length) {
+    summary.textContent = "You reached 60 WPM with accuracy. Amazing typing!";
+  } else {
+    summary.textContent = cleared + " of " + STAGES.length + " stages cleared. Next target: " +
+      STAGES[cleared].target + " WPM.";
+  }
+  var wrap = document.getElementById("road-stages");
+  wrap.innerHTML = "";
+  STAGES.forEach(function (stage, i) {
+    var rec = prog.stages[i];
+    var isCleared = !!(rec && rec.cleared);
+    var unlocked = stageUnlocked(prog, i);
+    var row = document.createElement("div");
+    row.className = "srow" + (isCleared ? " cleared" : unlocked ? " next" : " locked");
+    var mid = document.createElement("div");
+    var nm = document.createElement("span");
+    nm.className = "sname";
+    nm.textContent = "Stage " + (i + 1) + " • " + stage.target + " WPM";
+    var meta = document.createElement("span");
+    meta.className = "smeta";
+    var grec = prog.games[i];
+    meta.textContent = stage.label + " • " + (stage.secs >= 120 ? (stage.secs / 60) + " minute" : stage.secs + " second") + " test" +
+      (rec && rec.tries ? " • tried " + rec.tries + (rec.tries === 1 ? " time" : " times") : "") +
+      (grec && grec.plays ? " • 🚗 game best " + grec.wpm + " WPM, " + grec.dist + " m" : "");
+    mid.appendChild(nm); mid.appendChild(meta);
+    row.appendChild(mid);
+    function driveButton() {
+      var db2 = document.createElement("button");
+      db2.className = "btn btn-plain stage-drive";
+      db2.textContent = "🚗 Drive";
+      db2.addEventListener("click", function () { startGame(i); });
+      return db2;
+    }
+    if (isCleared) {
+      var st = document.createElement("span");
+      st.className = "sstate";
+      st.textContent = "✓ Best " + rec.wpm + " WPM • " + rec.acc + "%";
+      row.appendChild(st);
+      var again = document.createElement("button");
+      again.className = "btn btn-plain stage-start";
+      again.textContent = "Beat it";
+      again.addEventListener("click", function () { startTest(i); });
+      row.appendChild(again);
+      row.appendChild(driveButton());
+    } else if (unlocked) {
+      var btn = document.createElement("button");
+      btn.className = "btn btn-primary stage-start";
+      btn.textContent = "Start test";
+      btn.addEventListener("click", function () { startTest(i); });
+      row.appendChild(btn);
+      row.appendChild(driveButton());
+    } else {
+      var lock = document.createElement("span");
+      lock.className = "sstate";
+      lock.textContent = i === 0 ? "🔒 Finish the lessons first" : "🔒 Clear stage " + i + " first";
+      row.appendChild(lock);
+    }
+    wrap.appendChild(row);
+  });
+}
 function renderHome() {
   if (pendingRemote && (!session || session.finished)) {
     if (currentProfile && pendingRemote.name === currentProfile && players[currentProfile]) {
@@ -867,6 +1293,7 @@ function renderHome() {
   removeArmed = false;
   removeBtn.textContent = "Remove player";
   renderPlayerCard();
+  renderRoad();
   renderLadder();
   var pWrap = document.getElementById("profiles");
   pWrap.innerHTML = "";
@@ -1078,7 +1505,12 @@ function highlightNextKey() {
 
 /* ---------------- Practice ---------------- */
 function startLesson(idx) {
+  stopTestTicker();
+  stopGameTicker();
+  stopEngine();
+  document.getElementById("game-scene").classList.add("hidden");
   session = {
+    mode: "lesson",
     lessonIdx: idx,
     lineIdx: 0,
     pos: 0,
@@ -1095,6 +1527,48 @@ function startLesson(idx) {
   renderKeyboard();
   renderLine();
   updateStats();
+}
+var testTimer = null;
+function startTestTicker() {
+  stopTestTicker();
+  testTimer = setInterval(function () {
+    if (!session || session.mode !== "test" || session.finished) { stopTestTicker(); return; }
+    updateStats();
+    if (session.startedAt && Date.now() - session.startedAt >= session.durationSec * 1000) {
+      finishLesson();
+    }
+  }, 250);
+}
+function stopTestTicker() {
+  if (testTimer) { clearInterval(testTimer); testTimer = null; }
+}
+function startTest(idx) {
+  stopTestTicker();
+  stopGameTicker();
+  stopEngine();
+  document.getElementById("game-scene").classList.add("hidden");
+  var stage = STAGES[idx];
+  session = {
+    mode: "test",
+    stageIdx: idx,
+    lessonIdx: idx,
+    lineIdx: 0,
+    pos: 0,
+    lines: [stageText(stage)],
+    correct: 0,
+    total: 0,
+    startedAt: null,
+    finished: false,
+    durationSec: stage.secs
+  };
+  document.getElementById("lesson-title").textContent =
+    "Road Stage " + (idx + 1) + ": " + stage.target + " WPM test — " + currentProfile;
+  if (document.activeElement && document.activeElement.blur) { document.activeElement.blur(); }
+  showScreen("practice");
+  renderKeyboard();
+  renderLine();
+  updateStats();
+  startTestTicker();
 }
 function renderLine() {
   var target = document.getElementById("target");
@@ -1134,8 +1608,319 @@ function updateStats() {
   doneChars += session.pos;
   document.getElementById("progress-fill").style.width =
     Math.min(100, Math.round(100 * doneChars / totalChars)) + "%";
+  var timeWrap = document.getElementById("stat-time-wrap");
+  if (session.mode === "test" || session.mode === "game") {
+    timeWrap.classList.remove("hidden");
+    var remain = session.durationSec;
+    if (session.startedAt) {
+      remain = Math.max(0, session.durationSec - Math.floor((Date.now() - session.startedAt) / 1000));
+    }
+    document.getElementById("stat-time").textContent =
+      Math.floor(remain / 60) + ":" + ("0" + (remain % 60)).slice(-2);
+  } else {
+    timeWrap.classList.add("hidden");
+  }
+}
+function fillSaveNote() {
+  var saveNote = document.getElementById("result-save-note");
+  if (backend === "cloud" && !navigator.onLine) {
+    saveNote.textContent = "You are offline. This result is saved on this device and will sync when you reconnect.";
+    saveNote.classList.remove("hidden");
+  } else if (backend === "cloud" && saveError) {
+    saveNote.textContent = "Saving online hit a problem. Your result is kept on this device and will be sent again.";
+    saveNote.classList.remove("hidden");
+  } else {
+    saveNote.textContent = "";
+    saveNote.classList.add("hidden");
+  }
+}
+function finishTest() {
+  if (session.finished) { return; }
+  session.finished = true;
+  stopTestTicker();
+  var stage = STAGES[session.stageIdx];
+  var elapsed = session.startedAt ? (Date.now() - session.startedAt) / 1000 : 0;
+  var finishedText = session.pos >= session.lines[0].length;
+  var scored = finishedText ? elapsed : Math.min(elapsed, session.durationSec);
+  var acc = session.total === 0 ? 100 : Math.round(100 * session.correct / session.total);
+  var wpm = scored > 0 ? Math.round((session.correct / 5) / (scored / 60)) : 0;
+  var prog = profileProgress(currentProfile);
+  var totalBefore = totalPoints(prog);
+  var rec = prog.stages[session.stageIdx] || { wpm: 0, acc: 0, cleared: false, tries: 0 };
+  rec.tries += 1;
+  var wasCleared = !!rec.cleared;
+  var clearedNow = wpm >= stage.target && acc >= STAGE_GATE_ACC;
+  if (clearedNow) { rec.cleared = true; }
+  var isBest = wpm > rec.wpm;
+  if (isBest) { rec.wpm = wpm; rec.acc = acc; }
+  prog.stages[session.stageIdx] = rec;
+  updateStreak(prog);
+  var speedBonus = wpm >= 30 ? 20 : wpm >= 20 ? 10 : wpm >= 12 ? 5 : 0;
+  var runPts = session.correct + speedBonus + (clearedNow && !wasCleared ? 100 : 0);
+  if (runPts > (prog.stageBest[session.stageIdx] || 0)) { prog.stageBest[session.stageIdx] = runPts; }
+  var wk = currentWeekKey();
+  if (prog.weekKey !== wk) { prog.weekKey = wk; prog.weekBest = {}; }
+  var weekKey = "s" + session.stageIdx;
+  if (runPts > (prog.weekBest[weekKey] || 0)) { prog.weekBest[weekKey] = runPts; }
+  var newBadges = awardBadges(prog, { acc: acc, wpm: wpm });
+  persistPlayer(currentProfile);
+  pendingRemote = null;
+  var totalAfter = totalPoints(prog);
+  var delta = totalAfter - totalBefore;
+
+  document.getElementById("result-stars").textContent = wpm + " WPM";
+  document.getElementById("result-title").textContent =
+    "Stage " + (session.stageIdx + 1) + " test complete. Great typing, " + currentProfile + "!";
+  document.getElementById("result-wpm").textContent = wpm;
+  document.getElementById("result-acc").textContent = acc;
+  var msg;
+  if (clearedNow && !wasCleared) {
+    msg = "Stage cleared! You reached " + wpm + " WPM at " + acc + "% accuracy. Stage " +
+      (session.stageIdx + 2) + " is open.";
+    if (session.stageIdx + 1 >= STAGES.length) { msg = "Stage cleared! You reached 60 WPM with accuracy. You did it!"; }
+  } else if (clearedNow && wasCleared) {
+    msg = "Stage cleared again at " + wpm + " WPM and " + acc + "% accuracy.";
+  } else if (wpm >= stage.target) {
+    msg = "Fast enough at " + wpm + " WPM, but accuracy was " + acc + "%. A stage needs " +
+      STAGE_GATE_ACC + "% or better, so slow down just a touch and keep it clean.";
+  } else if (acc >= STAGE_GATE_ACC) {
+    msg = "Clean and careful at " + acc + "% accuracy. Speed was " + wpm +
+      " WPM; the target is " + stage.target + ". Keep the same care and push a little faster.";
+  } else {
+    msg = "Speed " + wpm + " WPM, accuracy " + acc + "%. The stage needs " + stage.target +
+      " WPM at " + STAGE_GATE_ACC + "% accuracy. Care first, then speed.";
+  }
+  document.getElementById("result-msg").textContent = msg;
+  var ptsEl = document.getElementById("result-points");
+  ptsEl.textContent = delta > 0
+    ? "+" + delta + " points! You now have " + totalAfter + " points."
+    : "No new points this time. Your best on this stage is worth " +
+      (prog.stageBest[session.stageIdx] || 0) + " points. Beat it to earn more.";
+  var badgesEl = document.getElementById("result-badges");
+  if (newBadges.length) {
+    var parts = [];
+    newBadges.forEach(function (id) { var b = badgeById(id); if (b) { parts.push(b.emoji + " " + b.name); } });
+    badgesEl.textContent = (newBadges.length > 1 ? "New badges: " : "New badge: ") + parts.join("   ");
+    badgesEl.classList.remove("hidden");
+  } else {
+    badgesEl.textContent = "";
+    badgesEl.classList.add("hidden");
+  }
+  var bestEl = document.getElementById("result-best");
+  if (!isBest && rec.wpm > 0) {
+    bestEl.textContent = "Your best on this stage: " + rec.wpm + " WPM at " + rec.acc + "% accuracy.";
+    bestEl.classList.remove("hidden");
+  } else {
+    bestEl.textContent = "";
+    bestEl.classList.add("hidden");
+  }
+  fillSaveNote();
+  var nextBtn = document.getElementById("btn-next");
+  nextBtn.textContent = "Next stage →";
+  nextBtn.classList.toggle("hidden", !(rec.cleared && session.stageIdx + 1 < STAGES.length));
+  showScreen("results");
+  celebrate(newBadges, totalBefore, totalAfter, "typewriter");
+}
+/* ---------------- Bug Splat Drive ----------------
+   A one-minute driving game in the spirit of the classic typing
+   tutors: steady, correct typing keeps the car moving and its speed
+   follows typing speed; every mistake splats a bug on the windshield,
+   and at 9 bugs the view is gone and the run ends in a playful crash.
+   A run uses the text bank of the stage it is launched from and is
+   practice for that stage: it feeds points, badges, the streak and
+   the weekly race, and stores a per-stage game best, but it does not
+   clear the stage. The timed test is still the certifying run. */
+var SPLAT_LIMIT = 9;
+var gameTimer = null;
+function stopGameTicker() {
+  if (gameTimer) { clearInterval(gameTimer); gameTimer = null; }
+}
+function startGame(idx) {
+  stopTestTicker();
+  stopGameTicker();
+  var stage = STAGES[idx];
+  session = {
+    mode: "game",
+    stageIdx: idx,
+    lessonIdx: idx,
+    lineIdx: 0,
+    pos: 0,
+    lines: [stageText(stage)],
+    correct: 0,
+    total: 0,
+    startedAt: null,
+    finished: false,
+    durationSec: 60,
+    splats: 0,
+    distance: 0,
+    speed: 0,
+    keyTimes: [],
+    lastTick: null,
+    goalDist: stage.target * 25,
+    trees: []
+  };
+  document.getElementById("lesson-title").textContent =
+    "🚗 Bug Splat Drive: Stage " + (idx + 1) + " (target " + stage.target + " WPM) — " + currentProfile;
+  var scene = document.getElementById("game-scene");
+  scene.classList.remove("hidden");
+  scene.classList.remove("crashed");
+  document.getElementById("splats").innerHTML = "";
+  document.getElementById("game-speed").textContent = "Speed: 0 mph";
+  document.getElementById("game-dist").textContent = "Distance: 0 m of " + session.goalDist + " m";
+  document.getElementById("game-splats").textContent = "Bugs: 0/" + SPLAT_LIMIT;
+  var scenery = document.getElementById("scenery");
+  scenery.innerHTML = "";
+  for (var ti = 0; ti < 6; ti++) {
+    var tree = document.createElement("div");
+    tree.className = "tree";
+    var fol = document.createElement("div");
+    fol.className = "foliage";
+    var trk = document.createElement("div");
+    trk.className = "trunk";
+    tree.appendChild(fol); tree.appendChild(trk);
+    scenery.appendChild(tree);
+    session.trees.push({ el: tree, side: ti % 2 === 0 ? "l" : "r", z: ti / 6 });
+  }
+  if (document.activeElement && document.activeElement.blur) { document.activeElement.blur(); }
+  showScreen("practice");
+  renderKeyboard();
+  renderLine();
+  updateStats();
+  startEngine();
+  gameTimer = setInterval(gameTick, 100);
+}
+function gameTick() {
+  if (!session || session.mode !== "game" || session.finished) { stopGameTicker(); return; }
+  var now = Date.now();
+  var dt = session.lastTick ? Math.min(0.25, (now - session.lastTick) / 1000) : 0;
+  session.lastTick = now;
+  session.keyTimes = session.keyTimes.filter(function (t) { return now - t < 10000; });
+  var winSecs = session.startedAt ? Math.min(10, (now - session.startedAt) / 1000) : 0;
+  var rollWpm = winSecs > 1 ? (session.keyTimes.length / 5) / (winSecs / 60) : 0;
+  session.speed += (rollWpm - session.speed) * 0.35;
+  if (session.startedAt && dt > 0) {
+    session.distance += session.speed * dt * (25 / 60);
+  }
+  updateEngine(session.speed);
+  document.getElementById("game-speed").textContent = "Speed: " + Math.round(session.speed) + " mph";
+  document.getElementById("game-dist").textContent =
+    "Distance: " + Math.round(session.distance) + " m of " + session.goalDist + " m";
+  document.getElementById("road-line").style.backgroundPosition =
+    "0 " + Math.round(session.distance * 30) % 28 + "px";
+  session.trees.forEach(function (tree) {
+    tree.z += dt * (0.06 + (session.speed / 60) * 0.3);
+    if (tree.z >= 1) { tree.z = 0.02; tree.side = Math.random() < 0.5 ? "l" : "r"; }
+    tree.el.style.top = (50 + tree.z * 32) + "%";
+    tree.el.style.left = tree.side === "l" ? (50 - (7 + tree.z * 41)) + "%" : (50 + (7 + tree.z * 41)) + "%";
+    tree.el.style.transform = "scale(" + (0.35 + tree.z * 1.15) + ")";
+    tree.el.style.opacity = Math.min(1, 0.25 + tree.z);
+  });
+  updateStats();
+  if (session.startedAt && now - session.startedAt >= session.durationSec * 1000) {
+    finishGame(false);
+  } else if (session.distance >= session.goalDist) {
+    finishGame(false);
+  }
+}
+function gameMistake() {
+  session.splats++;
+  var s = document.createElement("div");
+  s.className = "splat";
+  var size = 14 + Math.floor(Math.random() * 18);
+  s.style.width = size + "px";
+  s.style.height = size + "px";
+  s.style.left = (4 + Math.random() * 86) + "%";
+  s.style.top = (5 + Math.random() * 52) + "%";
+  s.style.transform = "rotate(" + Math.floor(Math.random() * 360) + "deg)";
+  document.getElementById("splats").appendChild(s);
+  document.getElementById("game-splats").textContent = "Bugs: " + session.splats + "/" + SPLAT_LIMIT;
+  if (session.splats >= SPLAT_LIMIT) {
+    document.getElementById("game-scene").classList.add("crashed");
+    finishGame(true);
+  }
+}
+function finishGame(crashed) {
+  if (session.finished) { return; }
+  session.finished = true;
+  stopGameTicker();
+  stopEngine();
+  var stage = STAGES[session.stageIdx];
+  var elapsed = session.startedAt ? (Date.now() - session.startedAt) / 1000 : 0;
+  var scored = Math.min(Math.max(elapsed, 0), session.durationSec);
+  var acc = session.total === 0 ? 100 : Math.round(100 * session.correct / session.total);
+  var wpm = scored > 0 ? Math.round((session.correct / 5) / (scored / 60)) : 0;
+  var prog = profileProgress(currentProfile);
+  var totalBefore = totalPoints(prog);
+  var g = prog.games[session.stageIdx] || { wpm: 0, acc: 0, dist: 0, plays: 0 };
+  g.plays += 1;
+  if (wpm > g.wpm) { g.wpm = wpm; g.acc = acc; }
+  if (Math.round(session.distance) > g.dist) { g.dist = Math.round(session.distance); }
+  prog.games[session.stageIdx] = g;
+  updateStreak(prog);
+  var speedBonus = wpm >= 30 ? 20 : wpm >= 20 ? 10 : wpm >= 12 ? 5 : 0;
+  var runPts = session.correct + speedBonus + (!crashed ? 25 : 0);
+  if (runPts > (prog.gameBest[session.stageIdx] || 0)) { prog.gameBest[session.stageIdx] = runPts; }
+  var wk = currentWeekKey();
+  if (prog.weekKey !== wk) { prog.weekKey = wk; prog.weekBest = {}; }
+  var weekKey = "g" + session.stageIdx;
+  if (runPts > (prog.weekBest[weekKey] || 0)) { prog.weekBest[weekKey] = runPts; }
+  var newBadges = awardBadges(prog, { acc: acc, wpm: wpm, gameFinish: !crashed, splats: session.splats });
+  persistPlayer(currentProfile);
+  pendingRemote = null;
+  var totalAfter = totalPoints(prog);
+  var delta = totalAfter - totalBefore;
+
+  document.getElementById("result-stars").textContent = crashed ? "💥" : "🏁";
+  document.getElementById("result-title").textContent = crashed
+    ? "You crashed, " + currentProfile + "!"
+    : "You finished the drive, " + currentProfile + "!";
+  document.getElementById("result-wpm").textContent = wpm;
+  document.getElementById("result-acc").textContent = acc;
+  var dist = Math.round(session.distance);
+  var msg;
+  if (crashed) {
+    msg = SPLAT_LIMIT + " bugs on the windshield! You drove " + dist +
+      " m before the big splat. Wipe it off and drive again.";
+  } else {
+    msg = "You drove " + dist + " m with " + session.splats + (session.splats === 1 ? " bug" : " bugs") +
+      " on the windshield. ";
+    msg += (wpm >= stage.target && acc >= STAGE_GATE_ACC)
+      ? "That is stage-test pace (" + stage.target + " WPM at " + STAGE_GATE_ACC + "%+). The stage test will feel familiar."
+      : "Your stage target is " + stage.target + " WPM at " + STAGE_GATE_ACC + "% accuracy. Keep practising here.";
+  }
+  document.getElementById("result-msg").textContent = msg;
+  document.getElementById("result-points").textContent = delta > 0
+    ? "+" + delta + " points! You now have " + totalAfter + " points."
+    : "No new points this time. Your best drive on this stage is worth " +
+      (prog.gameBest[session.stageIdx] || 0) + " points. Beat it to earn more.";
+  var badgesEl = document.getElementById("result-badges");
+  if (newBadges.length) {
+    var parts = [];
+    newBadges.forEach(function (id) { var b = badgeById(id); if (b) { parts.push(b.emoji + " " + b.name); } });
+    badgesEl.textContent = (newBadges.length > 1 ? "New badges: " : "New badge: ") + parts.join("   ");
+    badgesEl.classList.remove("hidden");
+  } else {
+    badgesEl.textContent = "";
+    badgesEl.classList.add("hidden");
+  }
+  var bestEl = document.getElementById("result-best");
+  if (g.plays > 1) {
+    bestEl.textContent = "Your best drive on this stage: " + g.wpm + " WPM, " + g.dist + " m.";
+    bestEl.classList.remove("hidden");
+  } else {
+    bestEl.textContent = "";
+    bestEl.classList.add("hidden");
+  }
+  fillSaveNote();
+  var nextBtn = document.getElementById("btn-next");
+  nextBtn.classList.add("hidden");
+  showScreen("results");
+  if (crashed) { crashSound(); } else { celebrate(newBadges, totalBefore, totalAfter); }
 }
 function finishLesson() {
+  if (session.mode === "test") { finishTest(); return; }
+  if (session.mode === "game") { finishGame(false); return; }
+  if (session.finished) { return; }
   session.finished = true;
   var acc = session.total === 0 ? 100 : Math.round(100 * session.correct / session.total);
   var minutes = session.startedAt ? (Date.now() - session.startedAt) / 60000 : 0;
@@ -1201,24 +1986,21 @@ function finishLesson() {
     bestEl.textContent = "";
     bestEl.classList.add("hidden");
   }
-  var saveNote = document.getElementById("result-save-note");
-  if (backend === "cloud" && !navigator.onLine) {
-    saveNote.textContent = "You are offline. This result is saved on this device and will sync when you reconnect.";
-    saveNote.classList.remove("hidden");
-  } else if (backend === "cloud" && saveError) {
-    saveNote.textContent = "Saving online hit a problem. Your result is kept on this device and will be sent again.";
-    saveNote.classList.remove("hidden");
-  } else {
-    saveNote.textContent = "";
-    saveNote.classList.add("hidden");
-  }
+  fillSaveNote();
   var nextBtn = document.getElementById("btn-next");
   var hasNext = session.lessonIdx + 1 < LESSONS.length;
+  nextBtn.textContent = "Next lesson →";
   nextBtn.classList.toggle("hidden", !hasNext);
   showScreen("results");
+  celebrate(newBadges, totalBefore, totalAfter, "typewriter");
 }
 document.addEventListener("keydown", function (e) {
   if (!session || session.finished || practiceScreen.classList.contains("hidden")) { return; }
+  if ((session.mode === "test" || session.mode === "game") && session.startedAt &&
+      Date.now() - session.startedAt >= session.durationSec * 1000) {
+    finishLesson();
+    return;
+  }
   if (e.ctrlKey || e.metaKey || e.altKey) { return; }
   var key = e.key;
   if (key === "Backspace") { e.preventDefault(); return; }
@@ -1229,18 +2011,25 @@ document.addEventListener("keydown", function (e) {
   var text = session.lines[session.lineIdx];
   var expected = text[session.pos];
   var span = document.getElementById("ch-" + session.pos);
+  ensureAudio();
   session.total++;
   if (key === expected) {
     session.correct++;
+    clackSound(key);
+    if (session.mode === "game") { session.keyTimes.push(Date.now()); }
     if (span) { span.classList.add("done"); span.classList.remove("wrong"); }
   } else {
     if (span) { span.classList.add("wrong"); }
+    if (session.mode === "game") { splatSound(); gameMistake(); }
+    else { buzzSound(); }
   }
+  if (session.finished) { return; }
   session.pos++;
   if (session.pos >= text.length) {
     if (session.lineIdx + 1 < session.lines.length) {
       session.lineIdx++;
       renderLine();
+      dingSound(0.028, 0.4);
     } else {
       updateStats();
       finishLesson();
@@ -1385,20 +2174,33 @@ document.getElementById("btn-remove-profile").addEventListener("click", function
 
 /* ---------------- Buttons ---------------- */
 document.getElementById("btn-restart").addEventListener("click", function () {
-  if (session) { startLesson(session.lessonIdx); }
+  if (!session) { return; }
+  if (session.mode === "test") { startTest(session.stageIdx); }
+  else if (session.mode === "game") { startGame(session.stageIdx); }
+  else { startLesson(session.lessonIdx); }
 });
 document.getElementById("btn-quit").addEventListener("click", function () {
+  stopTestTicker();
+  stopGameTicker();
+  stopEngine();
   session = null;
   renderHome();
   showScreen("home");
 });
 document.getElementById("btn-retry").addEventListener("click", function () {
-  if (session) { startLesson(session.lessonIdx); }
+  if (!session) { return; }
+  if (session.mode === "test") { startTest(session.stageIdx); }
+  else if (session.mode === "game") { startGame(session.stageIdx); }
+  else { startLesson(session.lessonIdx); }
 });
 document.getElementById("btn-next").addEventListener("click", function () {
-  if (session) { startLesson(session.lessonIdx + 1); }
+  if (!session) { return; }
+  if (session.mode === "test") { startTest(session.stageIdx + 1); } else { startLesson(session.lessonIdx + 1); }
 });
 document.getElementById("btn-home").addEventListener("click", function () {
+  stopTestTicker();
+  stopGameTicker();
+  stopEngine();
   session = null;
   renderHome();
   showScreen("home");
