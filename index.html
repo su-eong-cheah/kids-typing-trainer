@@ -57,6 +57,24 @@
     display: inline-block; margin-top: 6px; background: #43a047; color: #fff;
     border-radius: 999px; padding: 3px 12px; font-size: 0.82rem; font-weight: 700;
   }
+  /* Player card: rank, points, streak, badges */
+  .player-card {
+    border: 2px solid #e3ecf5; border-radius: 12px; padding: 14px 16px;
+    margin-bottom: 16px; background: #fbfdff;
+  }
+  .rank-line { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px 14px; font-size: 1.05rem; }
+  .rank-name { font-weight: 700; color: #1565c0; font-size: 1.15rem; }
+  .rank-points { color: #33506e; }
+  .rank-points b { color: #1c2b3a; }
+  .streak { font-weight: 700; color: #e65100; }
+  .next-rank { color: #5a6b7d; font-size: 0.9rem; margin-top: 6px; }
+  .badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; margin-top: 12px; }
+  .badge { border: 2px solid #e3ecf5; border-radius: 12px; padding: 10px 8px; text-align: center; background: #fff; }
+  .badge .b-emoji { font-size: 1.7rem; display: block; }
+  .badge .b-name { font-weight: 700; font-size: 0.88rem; display: block; margin-top: 2px; }
+  .badge .b-how { color: #5a6b7d; font-size: 0.75rem; display: block; margin-top: 2px; }
+  .badge.locked { opacity: 0.45; filter: grayscale(1); }
+  .results .new-badges { font-size: 1.15rem; font-weight: 700; color: #2e7d32; }
   /* Practice */
   .hidden { display: none !important; }
   .practice-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
@@ -125,6 +143,16 @@
       <button class="btn btn-primary" id="btn-register">Join</button>
       <button class="btn btn-plain hidden" id="btn-remove-profile">Remove player</button>
     </div>
+    <div class="player-card hidden" id="player-card">
+      <div class="rank-line">
+        <span class="rank-name" id="pc-rank"></span>
+        <span class="rank-points" id="pc-points"></span>
+        <span class="streak" id="pc-streak"></span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="pc-bar" style="background: #f9a825;"></div></div>
+      <div class="next-rank" id="pc-next"></div>
+      <div class="badges" id="pc-badges"></div>
+    </div>
     <div class="lessons" id="lessons"></div>
     <p class="note">Your player name and progress are saved on this device, in this browser. You need a real keyboard for this — a laptop or desktop works best.</p>
   </div>
@@ -157,6 +185,8 @@
       <p>Speed: <b id="result-wpm"></b> words per minute &nbsp;•&nbsp; Accuracy: <b id="result-acc"></b>%</p>
       <p id="result-msg"></p>
       <p id="result-best" class="hidden"></p>
+      <p id="result-points"></p>
+      <p id="result-badges" class="new-badges hidden"></p>
     </div>
     <div class="row-btns">
       <button class="btn btn-plain" id="btn-retry">↻ Try again</button>
@@ -251,8 +281,13 @@ function saveStore() {
 }
 function profileProgress(name) {
   if (!store.progress[name]) { store.progress[name] = { stars: {} }; }
-  if (!store.progress[name].stars || typeof store.progress[name].stars !== "object") { store.progress[name].stars = {}; }
-  return store.progress[name];
+  var p = store.progress[name];
+  if (!p.stars || typeof p.stars !== "object") { p.stars = {}; }
+  if (!p.best || typeof p.best !== "object") { p.best = {}; }
+  if (!Array.isArray(p.badges)) { p.badges = []; }
+  if (typeof p.streakCount !== "number") { p.streakCount = 0; }
+  if (typeof p.streakLast !== "string") { p.streakLast = ""; }
+  return p;
 }
 function unlockedCount(name) {
   var stars = profileProgress(name).stars;
@@ -261,6 +296,86 @@ function unlockedCount(name) {
     if (stars[i]) { n = i + 2; }
   }
   return Math.min(n, LESSONS.length);
+}
+
+/* ---------------- Gamification ----------------
+   Points for a run = correct letters + star bonus + speed bonus.
+   Only the best run per lesson counts toward the total, so replaying
+   an easy lesson cannot farm points; improving is what pays. */
+var RANKS = [
+  { at: 0, name: "New Typist" },
+  { at: 60, name: "Careful Tapper" },
+  { at: 150, name: "Home Row Rookie" },
+  { at: 300, name: "Speedy Fingers" },
+  { at: 500, name: "Keyboard Keeper" },
+  { at: 800, name: "Typing Pro" },
+  { at: 1200, name: "Speed Star" },
+  { at: 1700, name: "Typing Champion" }
+];
+var BADGES = [
+  { id: "first", emoji: "🌟", name: "First Steps", how: "Finish your first lesson" },
+  { id: "star3", emoji: "⭐", name: "Three-Star Typist", how: "Earn 3 stars on a lesson" },
+  { id: "eagle", emoji: "🎯", name: "Sharp Eyes", how: "Finish a lesson with no mistakes" },
+  { id: "speedy", emoji: "🚀", name: "Speedy", how: "Finish a lesson at 20 wpm or faster" },
+  { id: "home", emoji: "🏠", name: "Home Row Hero", how: "Finish all 5 home row lessons" },
+  { id: "top", emoji: "🔝", name: "Top Row Star", how: "Finish lessons 6 to 9" },
+  { id: "bottom", emoji: "⬇️", name: "Bottom Row Star", how: "Finish lessons 10 and 11" },
+  { id: "streak3", emoji: "🔥", name: "3-Day Streak", how: "Practise on 3 days in a row" },
+  { id: "streak7", emoji: "💪", name: "Super Streak", how: "Practise on 7 days in a row" },
+  { id: "grad", emoji: "🎓", name: "Typing Graduate", how: "Finish all 13 lessons" }
+];
+function pointsForRun(correct, stars, wpm) {
+  var starBonus = stars === 3 ? 50 : stars === 2 ? 25 : 10;
+  var speedBonus = wpm >= 30 ? 20 : wpm >= 20 ? 10 : wpm >= 12 ? 5 : 0;
+  return correct + starBonus + speedBonus;
+}
+function totalPoints(prog) {
+  var t = 0;
+  for (var k in prog.best) { t += prog.best[k]; }
+  return t;
+}
+function rankFor(points) {
+  var idx = 0;
+  for (var i = 0; i < RANKS.length; i++) { if (points >= RANKS[i].at) { idx = i; } }
+  return { idx: idx, cur: RANKS[idx], next: RANKS[idx + 1] || null };
+}
+function dateStrOf(ms) {
+  var d = new Date(ms);
+  var m = d.getMonth() + 1, day = d.getDate();
+  return d.getFullYear() + "-" + (m < 10 ? "0" : "") + m + "-" + (day < 10 ? "0" : "") + day;
+}
+function updateStreak(prog) {
+  var today = dateStrOf(Date.now());
+  if (prog.streakLast === today) { return; }
+  var yesterday = dateStrOf(Date.now() - 86400000);
+  prog.streakCount = prog.streakLast === yesterday ? prog.streakCount + 1 : 1;
+  prog.streakLast = today;
+}
+function hasStars(prog, from, to) {
+  for (var i = from; i <= to; i++) { if (!prog.stars[i]) { return false; } }
+  return true;
+}
+function awardBadges(prog, ctx) {
+  var earned = [];
+  function give(id) {
+    if (prog.badges.indexOf(id) < 0) { prog.badges.push(id); earned.push(id); }
+  }
+  var doneCount = Object.keys(prog.stars).length;
+  if (doneCount >= 1) { give("first"); }
+  for (var k in prog.stars) { if (prog.stars[k] >= 3) { give("star3"); break; } }
+  if (ctx && ctx.acc >= 100) { give("eagle"); }
+  if (ctx && ctx.wpm >= 20) { give("speedy"); }
+  if (hasStars(prog, 0, 4)) { give("home"); }
+  if (hasStars(prog, 5, 8)) { give("top"); }
+  if (hasStars(prog, 9, 10)) { give("bottom"); }
+  if (prog.streakCount >= 3) { give("streak3"); }
+  if (prog.streakCount >= 7) { give("streak7"); }
+  if (doneCount >= LESSONS.length) { give("grad"); }
+  return earned;
+}
+function badgeById(id) {
+  for (var i = 0; i < BADGES.length; i++) { if (BADGES[i].id === id) { return BADGES[i]; } }
+  return null;
 }
 
 /* ---------------- Home screen ---------------- */
@@ -278,18 +393,69 @@ function starString(n) {
   for (var i = 0; i < 3; i++) { s += i < n ? "★" : "☆"; }
   return s;
 }
+function renderPlayerCard() {
+  var card = document.getElementById("player-card");
+  if (!currentProfile) { card.classList.add("hidden"); return; }
+  var prog = profileProgress(currentProfile);
+  var synced = awardBadges(prog, null);
+  if (synced.length) { saveStore(); }
+  var pts = totalPoints(prog);
+  var rank = rankFor(pts);
+  card.classList.remove("hidden");
+  document.getElementById("pc-rank").textContent = rank.cur.name;
+  var ptsEl = document.getElementById("pc-points");
+  ptsEl.innerHTML = "";
+  ptsEl.appendChild(document.createTextNode("Points: "));
+  var b = document.createElement("b");
+  b.textContent = pts;
+  ptsEl.appendChild(b);
+  document.getElementById("pc-streak").textContent =
+    prog.streakCount >= 2 ? "🔥 " + prog.streakCount + "-day streak" : "";
+  var bar = document.getElementById("pc-bar");
+  var nextEl = document.getElementById("pc-next");
+  if (rank.next) {
+    bar.style.width = Math.round(100 * (pts - rank.cur.at) / (rank.next.at - rank.cur.at)) + "%";
+    nextEl.textContent = (rank.next.at - pts) + " points to " + rank.next.name;
+  } else {
+    bar.style.width = "100%";
+    nextEl.textContent = "Top rank reached. Amazing!";
+  }
+  var shelf = document.getElementById("pc-badges");
+  shelf.innerHTML = "";
+  BADGES.forEach(function (badge) {
+    var has = prog.badges.indexOf(badge.id) >= 0;
+    var div = document.createElement("div");
+    div.className = "badge" + (has ? "" : " locked");
+    var em = document.createElement("span");
+    em.className = "b-emoji";
+    em.textContent = badge.emoji;
+    var nm = document.createElement("span");
+    nm.className = "b-name";
+    nm.textContent = badge.name;
+    div.appendChild(em); div.appendChild(nm);
+    if (!has) {
+      var how = document.createElement("span");
+      how.className = "b-how";
+      how.textContent = badge.how;
+      div.appendChild(how);
+    }
+    shelf.appendChild(div);
+  });
+}
 function renderHome() {
   document.getElementById("btn-remove-profile").classList.toggle("hidden", !currentProfile);
+  renderPlayerCard();
   var pWrap = document.getElementById("profiles");
   pWrap.innerHTML = "";
   store.profiles.forEach(function (name) {
-    var done = Object.keys(profileProgress(name).stars).length;
+    var prog = profileProgress(name);
+    var done = Object.keys(prog.stars).length;
     var btn = document.createElement("button");
     btn.className = "profile-btn" + (name === currentProfile ? " active" : "");
     btn.innerHTML = "";
     btn.appendChild(document.createTextNode(name));
     var small = document.createElement("small");
-    small.textContent = done + " of " + LESSONS.length + " lessons done";
+    small.textContent = done + " of " + LESSONS.length + " lessons done • " + totalPoints(prog) + " pts";
     btn.appendChild(small);
     btn.addEventListener("click", function () {
       currentProfile = name;
@@ -478,18 +644,50 @@ function finishLesson() {
   if (acc >= 97 && wpm >= 8) { stars = 3; }
   var prog = profileProgress(currentProfile);
   var prev = prog.stars[session.lessonIdx] || 0;
+  var totalBefore = totalPoints(prog);
+  var rankBefore = rankFor(totalBefore).idx;
+  var runPts = pointsForRun(session.correct, stars, wpm);
+  if (runPts > (prog.best[session.lessonIdx] || 0)) { prog.best[session.lessonIdx] = runPts; }
   if (stars > prev) { prog.stars[session.lessonIdx] = stars; }
+  updateStreak(prog);
+  var newBadges = awardBadges(prog, { acc: acc, wpm: wpm });
   saveStore();
+  var totalAfter = totalPoints(prog);
+  var delta = totalAfter - totalBefore;
 
   document.getElementById("result-stars").textContent = starString(stars);
   document.getElementById("result-title").textContent =
     "Lesson " + (session.lessonIdx + 1) + " complete. Great typing, " + currentProfile + "!";
   document.getElementById("result-wpm").textContent = wpm;
   document.getElementById("result-acc").textContent = acc;
-  var msg = "Keep practising this lesson to earn more stars.";
-  if (stars === 3) { msg = "Amazing. Three stars!"; }
-  else if (stars === 2) { msg = "Well done. One more star is waiting when you make almost no mistakes."; }
-  document.getElementById("result-msg").textContent = msg;
+  var MSGS = {
+    3: ["Amazing. Three stars!", "Perfect typing. Three stars!", "You nailed it. Three stars!"],
+    2: ["Well done. One more star is waiting when you make almost no mistakes.",
+        "Great job. A tiny bit more care earns the third star.",
+        "So close to perfect. Two stars!"],
+    1: ["You finished. Keep practising this lesson to earn more stars.",
+        "Good effort. Watch each letter and try again.",
+        "Finished! Slower and careful earns more stars."]
+  };
+  var msgArr = MSGS[stars];
+  document.getElementById("result-msg").textContent = msgArr[(totalAfter + session.lessonIdx) % msgArr.length];
+  var ptsEl = document.getElementById("result-points");
+  var ptsText = delta > 0
+    ? "+" + delta + " points! You now have " + totalAfter + " points."
+    : "No new points this time. Your best on this lesson is " + (prog.best[session.lessonIdx] || 0) + " points. Beat it to earn more.";
+  var rankAfter = rankFor(totalAfter);
+  if (rankAfter.idx > rankBefore) { ptsText += " New rank: " + rankAfter.cur.name + "!"; }
+  ptsEl.textContent = ptsText;
+  var badgesEl = document.getElementById("result-badges");
+  if (newBadges.length) {
+    var parts = [];
+    newBadges.forEach(function (id) { var b = badgeById(id); if (b) { parts.push(b.emoji + " " + b.name); } });
+    badgesEl.textContent = (newBadges.length > 1 ? "New badges: " : "New badge: ") + parts.join("   ");
+    badgesEl.classList.remove("hidden");
+  } else {
+    badgesEl.textContent = "";
+    badgesEl.classList.add("hidden");
+  }
   var bestEl = document.getElementById("result-best");
   if (prev > stars) {
     bestEl.textContent = "Your best on this lesson: " + starString(prev) + ". That still counts.";
