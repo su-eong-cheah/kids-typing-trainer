@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Typing Trainer — Learn to Type</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -135,6 +137,31 @@
   .results p { font-size: 1.15rem; margin: 8px 0; color: #33506e; }
   .results p b { color: #1c2b3a; }
   .note { text-align: center; color: #5a6b7d; font-size: 0.9rem; margin-top: 14px; }
+  .cloud-status {
+    text-align: center; color: #1565c0; background: #e3f2fd; border-radius: 10px;
+    padding: 8px 12px; margin-bottom: 14px; font-size: 0.95rem;
+  }
+  .pin-panel {
+    border: 2px solid #f9a825; background: #fffde7; border-radius: 12px;
+    padding: 14px 16px; margin-bottom: 18px; text-align: center;
+  }
+  .pin-panel p { margin-bottom: 10px; color: #33506e; }
+  .pin-panel .register-row { margin-bottom: 0; }
+  .pin-error, .register-error { color: #c62828; font-size: 0.95rem; text-align: center; }
+  .register-error { margin: -8px 0 14px; }
+  #new-pin, #pin-input { min-width: 150px; }
+  /* Hands: a model of correct fingering, in sync with the keystrokes.
+     Display-only, like the keyboard; they show which finger to use,
+     they do not detect the typist's real fingers. */
+  .hands { display: flex; justify-content: center; margin-top: 10px; pointer-events: none; }
+  .hands-svg { width: 340px; max-width: 100%; height: auto; display: block; }
+  .palm { fill: #e8eef5; stroke: #9db8d2; stroke-width: 1.5; }
+  .finger {
+    fill: #d7e5f2; stroke: #9db8d2; stroke-width: 1.5;
+    transition: transform 0.08s ease, fill 0.08s ease; transform-box: fill-box;
+  }
+  .finger.next { fill: #ffd54f; stroke: #f9a825; transform: translateY(-4px); }
+  .finger.press { fill: #ffb300; stroke: #f9a825; transform: translateY(3px); }
   @media (max-width: 640px) {
     .target { font-size: 1.5rem; }
     .key { min-width: 30px; height: 38px; font-size: 0.8rem; }
@@ -151,11 +178,23 @@
 <div class="card">
   <!-- Home screen -->
   <div id="home-screen">
+    <p class="cloud-status hidden" id="cloud-status"></p>
     <div class="profiles" id="profiles"></div>
     <div class="register-row">
       <input id="new-name" type="text" maxlength="20" placeholder="New player? Type your name" autocomplete="off">
+      <input id="new-pin" type="password" inputmode="numeric" maxlength="4" placeholder="Choose a 4-number PIN" autocomplete="off">
       <button class="btn btn-primary" id="btn-register">Join</button>
       <button class="btn btn-plain hidden" id="btn-remove-profile">Remove player</button>
+    </div>
+    <p class="register-error hidden" id="register-error"></p>
+    <div class="pin-panel hidden" id="pin-panel">
+      <p id="pin-title"></p>
+      <div class="register-row">
+        <input id="pin-input" type="password" inputmode="numeric" maxlength="4" placeholder="4-number PIN" autocomplete="off">
+        <button class="btn btn-primary" id="btn-pin-go">Unlock</button>
+        <button class="btn btn-plain" id="btn-pin-cancel">Cancel</button>
+      </div>
+      <p class="pin-error hidden" id="pin-error"></p>
     </div>
     <div class="player-card hidden" id="player-card">
       <div class="rank-line">
@@ -176,7 +215,7 @@
       </div>
       <p class="note hidden" id="ladder-note">Add another player above to start the race.</p>
     </div>
-    <p class="note">Your player name and progress are saved on this device, in this browser. You need a real keyboard for this — a laptop or desktop works best.</p>
+    <p class="note">You need a real keyboard for this — a laptop or desktop works best.</p>
   </div>
 
   <!-- Practice screen -->
@@ -193,6 +232,7 @@
     <div class="target" id="target"></div>
     <div class="finger-hint" id="finger-hint"></div>
     <div class="keyboard" id="keyboard"></div>
+    <div class="hands" id="hands"></div>
     <div class="row-btns">
       <button class="btn btn-plain" id="btn-restart">↻ Restart lesson</button>
       <button class="btn btn-plain" id="btn-quit">← All lessons</button>
@@ -209,6 +249,7 @@
       <p id="result-best" class="hidden"></p>
       <p id="result-points"></p>
       <p id="result-badges" class="new-badges hidden"></p>
+      <p id="result-save-note" class="hidden"></p>
     </div>
     <div class="row-btns">
       <button class="btn btn-plain" id="btn-retry">↻ Try again</button>
@@ -265,6 +306,30 @@ var FINGERS = {
   " ": "Thumb"
 };
 var SHIFT_KEYS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+function fingerPart(f) {
+  if (f.indexOf("pinky") >= 0) { return "pinky"; }
+  if (f.indexOf("ring") >= 0) { return "ring"; }
+  if (f.indexOf("middle") >= 0) { return "middle"; }
+  if (f.indexOf("index") >= 0) { return "index"; }
+  return "thumb";
+}
+function fingerIdFor(f) {
+  return "finger-" + (f.indexOf("Left") === 0 ? "l" : "r") + "-" + fingerPart(f);
+}
+/* The finger elements that model a keystroke: one finger for most
+   keys, both thumbs for space, and the letter finger plus the
+   opposite hand's pinky (Shift) for capitals. */
+function fingersFor(ch) {
+  if (ch === " ") { return ["finger-l-thumb", "finger-r-thumb"]; }
+  var f = FINGERS[ch];
+  if (f) { return [fingerIdFor(f)]; }
+  if (SHIFT_KEYS.indexOf(ch) >= 0) {
+    var lf = FINGERS[ch.toLowerCase()];
+    if (!lf) { return []; }
+    return [fingerIdFor(lf), lf.indexOf("Left") === 0 ? "finger-r-pinky" : "finger-l-pinky"];
+  }
+  return [];
+}
 function fingerFor(ch) {
   if (SHIFT_KEYS.indexOf(ch) >= 0) {
     var lower = ch.toLowerCase();
@@ -275,43 +340,297 @@ function fingerFor(ch) {
   return FINGERS[ch] || "";
 }
 
-/* ---------------- State ---------------- */
-var STORE_KEY = "typingTrainer.v1";
-var store = loadStore();
+/* ---------------- Players and storage ----------------
+   Player records live in the cloud (Firestore collection "players",
+   one document per player, document id = lowercased name), so a
+   player can be opened on any computer and the ladder ranks everyone.
+   If the cloud is not configured on this copy of the page, or cannot
+   be reached at all, the page falls back to saving players in this
+   browser only, and says so on screen. Device-only conveniences
+   (last player opened here, which players this device has unlocked
+   with their PIN) stay in localStorage in both modes. */
+var firebaseConfig = {
+  apiKey: "AIzaSyA6y2Qe8dx7TE6WoWnmFXCIvASpTP5P4yQ",
+  authDomain: "kids-typing-trainer.firebaseapp.com",
+  projectId: "kids-typing-trainer",
+  storageBucket: "kids-typing-trainer.firebasestorage.app",
+  messagingSenderId: "377409102483",
+  appId: "1:377409102483:web:d73eee1d8af507ff542366"
+};
+var CONFIG_READY = firebaseConfig.projectId.indexOf("PLACEHOLDER") !== 0;
+
+var LOCAL_KEY = "typingTrainer.v2";
+var LEGACY_KEY = "typingTrainer.v1";
+var DEVICE_KEY = "typingTrainer.device";
+
+var players = {};        /* display name -> record */
+var playerNames = [];    /* display names, in join order */
 var currentProfile = null;
 var session = null;
+var backend = "local";   /* becomes "cloud" once Firestore is live */
+var dataReady = false;
+var db = null;
+var pendingRemote = null; /* cloud update for the player mid-lesson, applied when the lesson ends */
+var saveError = false;
+var forceOffline = false; /* set by the browser's offline event, for webviews where navigator.onLine lags */
 
-function loadStore() {
+var device = loadDevice();
+function loadDevice() {
   try {
-    var raw = localStorage.getItem(STORE_KEY);
+    var raw = localStorage.getItem(DEVICE_KEY);
     if (raw) {
-      var parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed.profiles)) { parsed.profiles = []; }
-      if (!parsed.progress || typeof parsed.progress !== "object" || Array.isArray(parsed.progress)) { parsed.progress = {}; }
-      return parsed;
+      var p = JSON.parse(raw);
+      if (p && typeof p === "object") {
+        return {
+          lastProfile: typeof p.lastProfile === "string" ? p.lastProfile : null,
+          unlocked: Array.isArray(p.unlocked) ? p.unlocked : [],
+          importedToCloud: p.importedToCloud === true
+        };
+      }
     }
   } catch (e) {}
-  return { lastProfile: null, profiles: [], progress: {} };
+  return { lastProfile: null, unlocked: [], importedToCloud: false };
 }
-if (store.lastProfile && store.profiles.indexOf(store.lastProfile) >= 0) {
-  currentProfile = store.lastProfile;
-} else if (store.profiles.length) {
-  currentProfile = store.profiles[0];
+function saveDevice() {
+  try { localStorage.setItem(DEVICE_KEY, JSON.stringify(device)); } catch (e) {}
 }
-function saveStore() {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {}
+function blankRecord(name) {
+  return { name: name, pin: "", createdAt: 0, stars: {}, best: {}, badges: [],
+           streakCount: 0, streakLast: "", weekKey: "", weekBest: {} };
+}
+function normalizeRecord(raw, fallbackName) {
+  var rec = blankRecord(raw && typeof raw.name === "string" && raw.name ? raw.name : fallbackName);
+  if (!raw || typeof raw !== "object") { return rec; }
+  if (typeof raw.pin === "string") { rec.pin = raw.pin; }
+  if (typeof raw.createdAt === "number") { rec.createdAt = raw.createdAt; }
+  if (raw.stars && typeof raw.stars === "object" && !Array.isArray(raw.stars)) { rec.stars = raw.stars; }
+  if (raw.best && typeof raw.best === "object" && !Array.isArray(raw.best)) { rec.best = raw.best; }
+  if (Array.isArray(raw.badges)) { rec.badges = raw.badges; }
+  if (typeof raw.streakCount === "number") { rec.streakCount = raw.streakCount; }
+  if (typeof raw.streakLast === "string") { rec.streakLast = raw.streakLast; }
+  if (typeof raw.weekKey === "string") { rec.weekKey = raw.weekKey; }
+  if (raw.weekBest && typeof raw.weekBest === "object" && !Array.isArray(raw.weekBest)) { rec.weekBest = raw.weekBest; }
+  return rec;
 }
 function profileProgress(name) {
-  if (!store.progress[name]) { store.progress[name] = { stars: {} }; }
-  var p = store.progress[name];
-  if (!p.stars || typeof p.stars !== "object") { p.stars = {}; }
-  if (!p.best || typeof p.best !== "object") { p.best = {}; }
-  if (!Array.isArray(p.badges)) { p.badges = []; }
-  if (typeof p.streakCount !== "number") { p.streakCount = 0; }
-  if (typeof p.streakLast !== "string") { p.streakLast = ""; }
-  if (typeof p.weekKey !== "string") { p.weekKey = ""; }
-  if (!p.weekBest || typeof p.weekBest !== "object") { p.weekBest = {}; }
-  return p;
+  /* Read-mostly accessor: the stored record, or an unstored blank, so
+     rendering can never resurrect a removed player. */
+  return players[name] || blankRecord(name);
+}
+function docIdFor(name) { return name.toLowerCase(); }
+function findPlayer(name) {
+  var lower = name.toLowerCase();
+  for (var i = 0; i < playerNames.length; i++) {
+    if (playerNames[i].toLowerCase() === lower) { return playerNames[i]; }
+  }
+  return null;
+}
+function rebuildNames() {
+  playerNames = Object.keys(players);
+  playerNames.sort(function (a, b) {
+    var ca = players[a].createdAt || 0, cb = players[b].createdAt || 0;
+    if (ca !== cb) { return ca - cb; }
+    return a < b ? -1 : a > b ? 1 : 0;
+  });
+}
+
+/* PIN safeguard: a 4-number PIN chosen at registration; only a hash is
+   stored. This is a speed bump so one child cannot casually open a
+   sibling's player on a new computer. It is not strong security. */
+function pinHash(name, pin) {
+  var s = name.toLowerCase() + ":" + pin;
+  var h = 0x811c9dc5;
+  for (var i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = (h * 0x01000193) >>> 0;
+  }
+  return ("0000000" + h.toString(16)).slice(-8);
+}
+function isUnlocked(name) { return device.unlocked.indexOf(name) >= 0; }
+function markUnlocked(name) {
+  if (!isUnlocked(name)) { device.unlocked.push(name); saveDevice(); }
+}
+
+/* ----- local backend ----- */
+function saveLocal() {
+  try { localStorage.setItem(LOCAL_KEY, JSON.stringify({ players: players })); } catch (e) {}
+}
+function loadLocalIntoMemory() {
+  try {
+    var raw = localStorage.getItem(LOCAL_KEY);
+    if (raw) {
+      var parsed = JSON.parse(raw);
+      if (parsed && parsed.players && typeof parsed.players === "object" && !Array.isArray(parsed.players)) {
+        players = {};
+        for (var k in parsed.players) { players[k] = normalizeRecord(parsed.players[k], k); }
+        rebuildNames();
+        return true;
+      }
+    }
+  } catch (e) {}
+  return false;
+}
+function migrateLegacy() {
+  /* typingTrainer.v1 shape: { lastProfile, profiles: [], progress: {} } */
+  var found = false;
+  try {
+    var raw = localStorage.getItem(LEGACY_KEY);
+    if (raw) {
+      var parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.profiles)) {
+        parsed.profiles.forEach(function (name) {
+          if (typeof name !== "string" || !name || players[name]) { return; }
+          var prog = (parsed.progress && typeof parsed.progress === "object" && !Array.isArray(parsed.progress))
+            ? parsed.progress[name] : null;
+          players[name] = normalizeRecord(prog || {}, name);
+          found = true;
+        });
+        if (typeof parsed.lastProfile === "string" && parsed.lastProfile && players[parsed.lastProfile]) {
+          device.lastProfile = parsed.lastProfile;
+          markUnlocked(parsed.lastProfile);
+        }
+      }
+    }
+  } catch (e) {}
+  if (found) { rebuildNames(); }
+  return found;
+}
+
+/* ----- persistence dispatch ----- */
+function persistPlayer(name) {
+  var rec = players[name];
+  if (!rec) { return; }
+  if (backend === "cloud" && db) {
+    db.collection("players").doc(docIdFor(name)).set(rec).catch(function () { saveError = true; });
+  } else {
+    saveLocal();
+  }
+}
+function deletePlayerEverywhere(name) {
+  if (backend === "cloud" && db) {
+    db.collection("players").doc(docIdFor(name)).delete().catch(function () { saveError = true; });
+  }
+  delete players[name];
+  rebuildNames();
+  if (backend !== "cloud") { saveLocal(); }
+}
+
+/* ----- status line ----- */
+function setStatus(text) {
+  var el = document.getElementById("cloud-status");
+  if (!el) { return; }
+  el.textContent = text || "";
+  el.classList.toggle("hidden", !text);
+}
+function refreshStatus() {
+  if (backend !== "cloud") {
+    setStatus(CONFIG_READY
+      ? "Online saving could not be reached, so players are being saved on this device only."
+      : "Online saving is not set up on this copy of the page yet, so players are saved on this device only.");
+    return;
+  }
+  if (!dataReady) { setStatus("Loading players…"); return; }
+  if (!navigator.onLine || forceOffline) {
+    setStatus("You are offline. Progress is saved on this device and will sync when you reconnect.");
+    return;
+  }
+  if (saveError) { setStatus("Online saving hit a problem. Progress is kept on this device and will be sent again."); return; }
+  setStatus("");
+}
+window.addEventListener("online", function () { forceOffline = false; refreshStatus(); });
+window.addEventListener("offline", function () { forceOffline = true; refreshStatus(); });
+
+/* ----- cloud backend ----- */
+function applyPlayersSnapshot(snap) {
+  var next = {};
+  snap.forEach(function (doc) {
+    var rec = normalizeRecord(doc.data(), doc.id);
+    next[rec.name] = rec;
+  });
+  var hold = null;
+  if (session && !session.finished && currentProfile && next[currentProfile] && players[currentProfile]) {
+    hold = players[currentProfile];
+    pendingRemote = next[currentProfile];
+  }
+  players = next;
+  if (hold) { players[currentProfile] = hold; }
+  rebuildNames();
+  if (currentProfile && !players[currentProfile] && (!session || session.finished)) { currentProfile = null; }
+  if (!currentProfile && device.lastProfile && players[device.lastProfile] && isUnlocked(device.lastProfile)) {
+    currentProfile = device.lastProfile;
+  }
+  dataReady = true;
+  refreshStatus();
+  if (!homeScreen.classList.contains("hidden")) { renderHome(); }
+}
+function importLocalPlayers(localImport) {
+  if (device.importedToCloud) { return; }
+  device.importedToCloud = true;
+  saveDevice();
+  var changed = false;
+  for (var name in localImport) {
+    if (!players[name]) {
+      players[name] = localImport[name];
+      persistPlayer(name);
+      changed = true;
+    }
+  }
+  if (changed) { rebuildNames(); renderHome(); }
+}
+function selectInitialLocal() {
+  if (device.lastProfile && players[device.lastProfile]) { currentProfile = device.lastProfile; }
+  else if (playerNames.length) { currentProfile = playerNames[0]; }
+  else { currentProfile = null; }
+}
+function initBackend() {
+  loadLocalIntoMemory();
+  migrateLegacy();
+  rebuildNames();
+  var localImport = players;
+  if (window.firebase && CONFIG_READY) {
+    try {
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.firestore();
+      backend = "cloud";
+      var subscribed = false;
+      var subscribe = function () {
+        if (subscribed) { return; }
+        subscribed = true;
+        db.collection("players").onSnapshot(function (snap) {
+          var first = !dataReady;
+          applyPlayersSnapshot(snap);
+          if (first) { importLocalPlayers(localImport); }
+        }, function (err) {
+          if (!dataReady) {
+            backend = "local";
+            db = null;
+            players = localImport;
+            rebuildNames();
+            dataReady = true;
+            selectInitialLocal();
+            refreshStatus();
+            renderHome();
+          } else {
+            saveError = true;
+            refreshStatus();
+          }
+        });
+      };
+      try {
+        db.enablePersistence({ synchronizeTabs: true }).then(subscribe, subscribe);
+      } catch (e) { subscribe(); }
+      refreshStatus();
+      renderHome();
+      return;
+    } catch (e) {
+      backend = "local";
+      db = null;
+    }
+  }
+  dataReady = true;
+  selectInitialLocal();
+  refreshStatus();
+  renderHome();
 }
 function unlockedCount(name) {
   var stars = profileProgress(name).stars;
@@ -442,7 +761,7 @@ function renderPlayerCard() {
   if (!currentProfile) { card.classList.add("hidden"); return; }
   var prog = profileProgress(currentProfile);
   var synced = awardBadges(prog, null);
-  if (synced.length) { saveStore(); }
+  if (synced.length) { persistPlayer(currentProfile); }
   var pts = totalPoints(prog);
   var rank = rankFor(pts);
   card.classList.remove("hidden");
@@ -488,10 +807,10 @@ function renderPlayerCard() {
 }
 function renderLadder() {
   var card = document.getElementById("ladder-card");
-  if (!store.profiles.length) { card.classList.add("hidden"); return; }
+  if (!playerNames.length) { card.classList.add("hidden"); return; }
   card.classList.remove("hidden");
-  document.getElementById("ladder-note").classList.toggle("hidden", store.profiles.length >= 2);
-  var rows = store.profiles.map(function (name) {
+  document.getElementById("ladder-note").classList.toggle("hidden", playerNames.length >= 2);
+  var rows = playerNames.map(function (name) {
     var prog = profileProgress(name);
     var total = totalPoints(prog);
     return {
@@ -537,6 +856,12 @@ function renderLadder() {
   fill("ladder-all", "total");
 }
 function renderHome() {
+  if (pendingRemote && (!session || session.finished)) {
+    if (currentProfile && pendingRemote.name === currentProfile && players[currentProfile]) {
+      players[currentProfile] = pendingRemote;
+    }
+    pendingRemote = null;
+  }
   var removeBtn = document.getElementById("btn-remove-profile");
   removeBtn.classList.toggle("hidden", !currentProfile);
   removeArmed = false;
@@ -545,7 +870,7 @@ function renderHome() {
   renderLadder();
   var pWrap = document.getElementById("profiles");
   pWrap.innerHTML = "";
-  store.profiles.forEach(function (name) {
+  playerNames.forEach(function (name) {
     var prog = profileProgress(name);
     var done = Object.keys(prog.stars).length;
     var btn = document.createElement("button");
@@ -555,21 +880,25 @@ function renderHome() {
     var small = document.createElement("small");
     small.textContent = done + " of " + LESSONS.length + " lessons done • " + totalPoints(prog) + " pts";
     btn.appendChild(small);
-    btn.addEventListener("click", function () {
-      currentProfile = name;
-      store.lastProfile = name;
-      saveStore();
-      renderHome();
-    });
+    btn.addEventListener("click", function () { selectProfile(name); });
     pWrap.appendChild(btn);
   });
 
   var lWrap = document.getElementById("lessons");
   lWrap.innerHTML = "";
+  if (!dataReady) {
+    var lp = document.createElement("p");
+    lp.className = "note";
+    lp.textContent = "Loading players…";
+    lWrap.appendChild(lp);
+    return;
+  }
   if (!currentProfile) {
     var p = document.createElement("p");
     p.className = "note";
-    p.textContent = "Type your name above and tap Join to create your player, then start with Lesson 1.";
+    p.textContent = playerNames.length
+      ? "Tap your name above to open your player, then pick a lesson."
+      : "Type your name above and tap Join to create your player, then start with Lesson 1.";
     lWrap.appendChild(p);
     return;
   }
@@ -650,12 +979,86 @@ function renderKeyboard() {
   spaceRow.appendChild(sp);
   kb.appendChild(spaceRow);
 }
+function buildHands() {
+  var wrap = document.getElementById("hands");
+  var NS = "http://www.w3.org/2000/svg";
+  var svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 340 104");
+  svg.setAttribute("class", "hands-svg");
+  svg.setAttribute("aria-hidden", "true");
+  function hand(side, ox) {
+    var g = document.createElementNS(NS, "g");
+    var palm = document.createElementNS(NS, "rect");
+    palm.setAttribute("x", ox + 2);
+    palm.setAttribute("y", 58);
+    palm.setAttribute("width", 96);
+    palm.setAttribute("height", 46);
+    palm.setAttribute("rx", 15);
+    palm.setAttribute("class", "palm");
+    g.appendChild(palm);
+    var spec = [
+      { id: "pinky", len: 38, dx: 0 },
+      { id: "ring", len: 52, dx: 23 },
+      { id: "middle", len: 60, dx: 46 },
+      { id: "index", len: 50, dx: 69 }
+    ];
+    spec.forEach(function (f) {
+      var r = document.createElementNS(NS, "rect");
+      r.setAttribute("x", side === "l" ? ox + 6 + f.dx : ox + 94 - 18 - f.dx);
+      r.setAttribute("y", 62 - f.len);
+      r.setAttribute("width", 18);
+      r.setAttribute("height", f.len + 10);
+      r.setAttribute("rx", 9);
+      r.setAttribute("class", "finger");
+      r.setAttribute("id", "finger-" + side + "-" + f.id);
+      g.appendChild(r);
+    });
+    var thumb = document.createElementNS(NS, "rect");
+    thumb.setAttribute("width", 17);
+    thumb.setAttribute("height", 40);
+    thumb.setAttribute("rx", 8.5);
+    thumb.setAttribute("class", "finger");
+    thumb.setAttribute("id", "finger-" + side + "-thumb");
+    if (side === "l") {
+      thumb.setAttribute("x", ox + 86);
+      thumb.setAttribute("y", 60);
+      thumb.setAttribute("transform", "rotate(-30 " + (ox + 94) + " 80)");
+    } else {
+      thumb.setAttribute("x", ox + 5);
+      thumb.setAttribute("y", 60);
+      thumb.setAttribute("transform", "rotate(30 " + (ox + 14) + " 80)");
+    }
+    g.appendChild(thumb);
+    svg.appendChild(g);
+  }
+  hand("l", 48);
+  hand("r", 188);
+  wrap.appendChild(svg);
+}
+function updateHands(ch) {
+  var all = document.querySelectorAll(".finger.next");
+  for (var i = 0; i < all.length; i++) { all[i].classList.remove("next"); }
+  if (ch === undefined) { return; }
+  fingersFor(ch).forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) { el.classList.add("next"); }
+  });
+}
+function pressFingers(ch) {
+  fingersFor(ch).forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) { return; }
+    el.classList.add("press");
+    setTimeout(function () { el.classList.remove("press"); }, 130);
+  });
+}
 function highlightNextKey() {
   var all = document.querySelectorAll(".key.next");
   for (var i = 0; i < all.length; i++) { all[i].classList.remove("next"); }
   if (!session) { return; }
   var ch = session.lines[session.lineIdx][session.pos];
   if (ch === undefined) { return; }
+  updateHands(ch);
   var id = ch === " " ? "key-space" : "key-" + ch.toLowerCase();
   var el = document.getElementById(id);
   if (el) { el.classList.add("next"); }
@@ -752,7 +1155,8 @@ function finishLesson() {
   if (stars > prev) { prog.stars[session.lessonIdx] = stars; }
   updateStreak(prog);
   var newBadges = awardBadges(prog, { acc: acc, wpm: wpm });
-  saveStore();
+  persistPlayer(currentProfile);
+  pendingRemote = null;
   var totalAfter = totalPoints(prog);
   var delta = totalAfter - totalBefore;
 
@@ -797,6 +1201,17 @@ function finishLesson() {
     bestEl.textContent = "";
     bestEl.classList.add("hidden");
   }
+  var saveNote = document.getElementById("result-save-note");
+  if (backend === "cloud" && !navigator.onLine) {
+    saveNote.textContent = "You are offline. This result is saved on this device and will sync when you reconnect.";
+    saveNote.classList.remove("hidden");
+  } else if (backend === "cloud" && saveError) {
+    saveNote.textContent = "Saving online hit a problem. Your result is kept on this device and will be sent again.";
+    saveNote.classList.remove("hidden");
+  } else {
+    saveNote.textContent = "";
+    saveNote.classList.add("hidden");
+  }
   var nextBtn = document.getElementById("btn-next");
   var hasNext = session.lessonIdx + 1 < LESSONS.length;
   nextBtn.classList.toggle("hidden", !hasNext);
@@ -810,6 +1225,7 @@ document.addEventListener("keydown", function (e) {
   if (key.length !== 1) { return; }
   e.preventDefault();
   if (!session.startedAt) { session.startedAt = Date.now(); }
+  pressFingers(key);
   var text = session.lines[session.lineIdx];
   var expected = text[session.pos];
   var span = document.getElementById("ch-" + session.pos);
@@ -837,34 +1253,114 @@ document.addEventListener("keydown", function (e) {
   updateStats();
 });
 
-/* ---------------- Registration ---------------- */
-function registerProfile() {
-  var input = document.getElementById("new-name");
-  var name = input.value.trim().replace(/\s+/g, " ");
-  if (!name) { input.focus(); return; }
-  var lower = name.toLowerCase();
-  for (var i = 0; i < store.profiles.length; i++) {
-    if (store.profiles[i].toLowerCase() === lower) {
-      currentProfile = store.profiles[i];
-      store.lastProfile = currentProfile;
-      saveStore();
-      input.value = "";
-      renderHome();
-      return;
-    }
-  }
-  store.profiles.push(name);
-  profileProgress(name);
+/* ---------------- Registration, selection, PIN ---------------- */
+function selectProfile(name) {
+  var rec = players[name];
+  if (!rec) { return; }
+  if (name === currentProfile) { hidePinPanel(); renderHome(); return; }
+  if (!rec.pin) { openPinPanel(name, "set"); return; }
+  if (!isUnlocked(name)) { openPinPanel(name, "unlock"); return; }
   currentProfile = name;
-  store.lastProfile = name;
-  saveStore();
-  input.value = "";
+  device.lastProfile = name;
+  saveDevice();
+  hidePinPanel();
+  renderHome();
+}
+function registerProfile() {
+  var nameInput = document.getElementById("new-name");
+  var pinInput = document.getElementById("new-pin");
+  var errEl = document.getElementById("register-error");
+  var name = nameInput.value.trim().replace(/\s+/g, " ");
+  var pin = pinInput.value.trim();
+  errEl.classList.add("hidden");
+  if (!name) { nameInput.focus(); return; }
+  var existing = findPlayer(name);
+  if (existing) {
+    nameInput.value = "";
+    pinInput.value = "";
+    selectProfile(existing);
+    return;
+  }
+  if (!/^\d{4}$/.test(pin)) {
+    errEl.textContent = "Choose a PIN with exactly 4 numbers. You will type it to open your player on other computers.";
+    errEl.classList.remove("hidden");
+    pinInput.focus();
+    return;
+  }
+  var rec = blankRecord(name);
+  rec.pin = pinHash(name, pin);
+  rec.createdAt = Date.now();
+  players[name] = rec;
+  rebuildNames();
+  persistPlayer(name);
+  markUnlocked(name);
+  currentProfile = name;
+  device.lastProfile = name;
+  saveDevice();
+  nameInput.value = "";
+  pinInput.value = "";
+  hidePinPanel();
   renderHome();
 }
 document.getElementById("btn-register").addEventListener("click", registerProfile);
 document.getElementById("new-name").addEventListener("keydown", function (e) {
   if (e.key === "Enter") { registerProfile(); }
 });
+document.getElementById("new-pin").addEventListener("keydown", function (e) {
+  if (e.key === "Enter") { registerProfile(); }
+});
+
+/* PIN panel: in-page, never a browser dialog. */
+var pinTarget = null;
+var pinMode = "unlock";
+function openPinPanel(name, mode) {
+  pinTarget = name;
+  pinMode = mode;
+  document.getElementById("pin-title").textContent = mode === "set"
+    ? "Set a 4-number PIN for " + name + ", so only you can open your player on other computers."
+    : "Type " + name + "'s PIN to open this player.";
+  document.getElementById("btn-pin-go").textContent = mode === "set" ? "Set PIN and play" : "Unlock";
+  document.getElementById("pin-error").classList.add("hidden");
+  var input = document.getElementById("pin-input");
+  input.value = "";
+  document.getElementById("pin-panel").classList.remove("hidden");
+  input.focus();
+}
+function hidePinPanel() {
+  pinTarget = null;
+  document.getElementById("pin-panel").classList.add("hidden");
+}
+function submitPin() {
+  if (!pinTarget || !players[pinTarget]) { hidePinPanel(); return; }
+  var pin = document.getElementById("pin-input").value.trim();
+  var err = document.getElementById("pin-error");
+  var rec = players[pinTarget];
+  if (!/^\d{4}$/.test(pin)) {
+    err.textContent = "A PIN has exactly 4 numbers.";
+    err.classList.remove("hidden");
+    return;
+  }
+  if (pinMode === "set") {
+    rec.pin = pinHash(pinTarget, pin);
+    persistPlayer(pinTarget);
+  } else if (pinHash(pinTarget, pin) !== rec.pin) {
+    err.textContent = "That PIN does not match. Try again.";
+    err.classList.remove("hidden");
+    return;
+  }
+  markUnlocked(pinTarget);
+  currentProfile = pinTarget;
+  device.lastProfile = pinTarget;
+  saveDevice();
+  hidePinPanel();
+  renderHome();
+}
+document.getElementById("btn-pin-go").addEventListener("click", submitPin);
+document.getElementById("btn-pin-cancel").addEventListener("click", hidePinPanel);
+document.getElementById("pin-input").addEventListener("keydown", function (e) {
+  if (e.key === "Enter") { submitPin(); }
+});
+
 var removeArmed = false;
 document.getElementById("btn-remove-profile").addEventListener("click", function () {
   if (!currentProfile) { return; }
@@ -874,11 +1370,16 @@ document.getElementById("btn-remove-profile").addEventListener("click", function
     return;
   }
   removeArmed = false;
-  store.profiles = store.profiles.filter(function (n) { return n !== currentProfile; });
-  delete store.progress[currentProfile];
-  currentProfile = store.profiles.length ? store.profiles[0] : null;
-  store.lastProfile = currentProfile;
-  saveStore();
+  var name = currentProfile;
+  deletePlayerEverywhere(name);
+  device.unlocked = device.unlocked.filter(function (n) { return n !== name; });
+  currentProfile = null;
+  for (var i = 0; i < playerNames.length; i++) {
+    if (isUnlocked(playerNames[i])) { currentProfile = playerNames[i]; break; }
+  }
+  device.lastProfile = currentProfile;
+  saveDevice();
+  hidePinPanel();
   renderHome();
 });
 
@@ -903,7 +1404,8 @@ document.getElementById("btn-home").addEventListener("click", function () {
   showScreen("home");
 });
 
-renderHome();
+buildHands();
+initBackend();
 </script>
 </body>
 </html>
