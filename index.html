@@ -75,6 +75,20 @@
   .badge .b-how { color: #5a6b7d; font-size: 0.75rem; display: block; margin-top: 2px; }
   .badge.locked { opacity: 0.45; filter: grayscale(1); }
   .results .new-badges { font-size: 1.15rem; font-weight: 700; color: #2e7d32; }
+  /* Ladder */
+  .ladder-head { font-weight: 700; color: #1565c0; font-size: 1.15rem; margin-bottom: 8px; }
+  .ladder-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .ladder-col h3 { font-size: 1rem; color: #33506e; margin-bottom: 6px; }
+  .lrow {
+    display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+    border: 2px solid #e3ecf5; border-radius: 10px; margin-bottom: 6px; background: #fff;
+  }
+  .lrow.me { border-color: #f9a825; background: #fffde7; }
+  .lrow .pos { font-size: 1.1rem; min-width: 1.6em; text-align: center; }
+  .lrow .lname { font-weight: 700; }
+  .lrow .lmeta { color: #5a6b7d; font-size: 0.82rem; display: block; }
+  .lrow .lpts { margin-left: auto; font-weight: 700; color: #1565c0; white-space: nowrap; }
+  @media (max-width: 640px) { .ladder-cols { grid-template-columns: 1fr; } }
   /* Practice */
   .hidden { display: none !important; }
   .practice-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
@@ -154,6 +168,14 @@
       <div class="badges" id="pc-badges"></div>
     </div>
     <div class="lessons" id="lessons"></div>
+    <div class="player-card hidden" id="ladder-card">
+      <div class="ladder-head">🏆 Family Ladder</div>
+      <div class="ladder-cols">
+        <div class="ladder-col"><h3>📅 This week's race</h3><div id="ladder-week"></div></div>
+        <div class="ladder-col"><h3>🌟 All time</h3><div id="ladder-all"></div></div>
+      </div>
+      <p class="note hidden" id="ladder-note">Add another player above to start the race.</p>
+    </div>
     <p class="note">Your player name and progress are saved on this device, in this browser. You need a real keyboard for this — a laptop or desktop works best.</p>
   </div>
 
@@ -287,6 +309,8 @@ function profileProgress(name) {
   if (!Array.isArray(p.badges)) { p.badges = []; }
   if (typeof p.streakCount !== "number") { p.streakCount = 0; }
   if (typeof p.streakLast !== "string") { p.streakLast = ""; }
+  if (typeof p.weekKey !== "string") { p.weekKey = ""; }
+  if (!p.weekBest || typeof p.weekBest !== "object") { p.weekBest = {}; }
   return p;
 }
 function unlockedCount(name) {
@@ -377,6 +401,26 @@ function badgeById(id) {
   for (var i = 0; i < BADGES.length; i++) { if (BADGES[i].id === id) { return BADGES[i]; } }
   return null;
 }
+/* The week runs Monday to Sunday. Week points use the same rule as
+   total points (best run per lesson), counted within the week only,
+   so every Monday everyone starts a fresh race on equal footing. */
+function currentWeekKey() {
+  var d = new Date(Date.now());
+  var sinceMonday = (d.getDay() + 6) % 7;
+  var monday = new Date(d.getFullYear(), d.getMonth(), d.getDate() - sinceMonday);
+  return dateStrOf(monday.getTime());
+}
+function weekPoints(prog) {
+  if (prog.weekKey !== currentWeekKey()) { return 0; }
+  var t = 0;
+  for (var k in prog.weekBest) { t += prog.weekBest[k]; }
+  return t;
+}
+function totalStars(prog) {
+  var t = 0;
+  for (var k in prog.stars) { t += prog.stars[k]; }
+  return t;
+}
 
 /* ---------------- Home screen ---------------- */
 var homeScreen = document.getElementById("home-screen");
@@ -442,9 +486,60 @@ function renderPlayerCard() {
     shelf.appendChild(div);
   });
 }
+function renderLadder() {
+  var card = document.getElementById("ladder-card");
+  if (!store.profiles.length) { card.classList.add("hidden"); return; }
+  card.classList.remove("hidden");
+  document.getElementById("ladder-note").classList.toggle("hidden", store.profiles.length >= 2);
+  var rows = store.profiles.map(function (name) {
+    var prog = profileProgress(name);
+    var total = totalPoints(prog);
+    return {
+      name: name,
+      total: total,
+      week: weekPoints(prog),
+      stars: totalStars(prog),
+      rankName: rankFor(total).cur.name
+    };
+  });
+  function byPoints(key) {
+    return function (a, b) {
+      if (b[key] !== a[key]) { return b[key] - a[key]; }
+      if (b.stars !== a.stars) { return b.stars - a.stars; }
+      return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+    };
+  }
+  function fill(containerId, key) {
+    var wrap = document.getElementById(containerId);
+    wrap.innerHTML = "";
+    rows.slice().sort(byPoints(key)).forEach(function (r, i) {
+      var row = document.createElement("div");
+      row.className = "lrow" + (r.name === currentProfile ? " me" : "");
+      var pos = document.createElement("span");
+      pos.className = "pos";
+      pos.textContent = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : (i + 1) + ".";
+      var mid = document.createElement("div");
+      var nm = document.createElement("span");
+      nm.className = "lname";
+      nm.textContent = r.name + (r.name === currentProfile ? " (you)" : "");
+      var meta = document.createElement("span");
+      meta.className = "lmeta";
+      meta.textContent = r.rankName + " • ⭐ " + r.stars;
+      mid.appendChild(nm); mid.appendChild(meta);
+      var pts = document.createElement("span");
+      pts.className = "lpts";
+      pts.textContent = r[key] + " pts";
+      row.appendChild(pos); row.appendChild(mid); row.appendChild(pts);
+      wrap.appendChild(row);
+    });
+  }
+  fill("ladder-week", "week");
+  fill("ladder-all", "total");
+}
 function renderHome() {
   document.getElementById("btn-remove-profile").classList.toggle("hidden", !currentProfile);
   renderPlayerCard();
+  renderLadder();
   var pWrap = document.getElementById("profiles");
   pWrap.innerHTML = "";
   store.profiles.forEach(function (name) {
@@ -648,6 +743,9 @@ function finishLesson() {
   var rankBefore = rankFor(totalBefore).idx;
   var runPts = pointsForRun(session.correct, stars, wpm);
   if (runPts > (prog.best[session.lessonIdx] || 0)) { prog.best[session.lessonIdx] = runPts; }
+  var wk = currentWeekKey();
+  if (prog.weekKey !== wk) { prog.weekKey = wk; prog.weekBest = {}; }
+  if (runPts > (prog.weekBest[session.lessonIdx] || 0)) { prog.weekBest[session.lessonIdx] = runPts; }
   if (stars > prev) { prog.stars[session.lessonIdx] = stars; }
   updateStreak(prog);
   var newBadges = awardBadges(prog, { acc: acc, wpm: wpm });
