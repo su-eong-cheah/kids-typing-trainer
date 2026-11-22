@@ -324,6 +324,7 @@
   <!-- Home screen -->
   <div id="home-screen">
     <p class="cloud-status hidden" id="cloud-status"></p>
+    <p class="note">You need a real keyboard for this — a laptop or desktop works best.</p>
     <div class="profiles" id="profiles"></div>
     <div class="register-row">
       <input id="new-name" type="text" maxlength="20" placeholder="New player? Type your name" autocomplete="off">
@@ -356,7 +357,7 @@
       <div class="ladder-head">🛣️ Road to 60 WPM</div>
       <p class="road-summary" id="road-summary"></p>
       <div id="road-stages"></div>
-      <p class="note">A stage clears when you reach its speed target with at least 95% accuracy. Fast and careful beats fast and messy.</p>
+      <p class="note">A stage clears when you reach its speed target with at least 95% accuracy. WPM means words per minute. Fast and careful beats fast and messy.</p>
     </div>
     <div class="player-card hidden" id="ladder-card">
       <div class="ladder-head">🏆 Family Ladder</div>
@@ -366,7 +367,6 @@
       </div>
       <p class="note hidden" id="ladder-note">Add another player above to start the race.</p>
     </div>
-    <p class="note">You need a real keyboard for this — a laptop or desktop works best.</p>
   </div>
 
   <!-- Practice screen -->
@@ -374,7 +374,7 @@
     <div class="practice-head">
       <h2 id="lesson-title"></h2>
       <div class="stats">
-        <span>Speed: <b id="stat-wpm">0</b> wpm</span>
+        <span>Speed: <b id="stat-wpm">0</b> WPM</span>
         <span>Accuracy: <b id="stat-acc">100</b>%</span>
         <span>Line: <b id="stat-line">1</b></span>
         <span id="stat-elapsed-wrap" class="hidden">Time: <b id="stat-elapsed">0:00</b></span>
@@ -388,10 +388,11 @@
       <div id="scenery"></div>
       <div id="splats"></div>
       <div class="dashbar">
-        <span id="game-speed">Speed: 0 mph</span>
+        <span id="game-speed">Speed: 0 km/h</span>
         <span id="game-dist">Distance: 0 m</span>
-        <span id="game-splats">Bugs: 0/9</span>
+        <span id="game-splats">Bug splats: 0/9</span>
       </div>
+      <p class="note" id="game-note">Every mistake splats a bug on the windshield. 9 splats and you crash!</p>
     </div>
     <div class="wg-stage hidden" id="word-stage">
       <div class="wg-hud" id="wg-hud"></div>
@@ -874,7 +875,10 @@ function rebuildNames() {
 
 /* PIN safeguard: a 4-number PIN chosen at registration; only a hash is
    stored. This is a speed bump so one child cannot casually open a
-   sibling's player on a new computer. It is not strong security. */
+   sibling's player. It is not strong security. Switching to another
+   player locks the one left behind, so coming back to it asks for
+   its PIN again; the active player stays unlocked for its session,
+   which is also what removing a player checks. */
 function pinHash(name, pin) {
   var s = name.toLowerCase() + ":" + pin;
   var h = 0x811c9dc5;
@@ -887,6 +891,17 @@ function pinHash(name, pin) {
 function isUnlocked(name) { return device.unlocked.indexOf(name) >= 0; }
 function markUnlocked(name) {
   if (!isUnlocked(name)) { device.unlocked.push(name); saveDevice(); }
+}
+function lockProfile(name) {
+  if (!name) { return; }
+  var i = device.unlocked.indexOf(name);
+  if (i >= 0) { device.unlocked.splice(i, 1); saveDevice(); }
+}
+function setCurrentProfile(name) {
+  if (currentProfile && name !== currentProfile) { lockProfile(currentProfile); }
+  currentProfile = name;
+  device.lastProfile = name;
+  saveDevice();
 }
 
 /* ----- local backend ----- */
@@ -939,9 +954,12 @@ function persistPlayer(name) {
   var rec = players[name];
   if (!rec) { return; }
   if (backend === "cloud" && db) {
-    db.collection("players").doc(docIdFor(name)).set(rec).catch(function () { saveError = true; });
+    db.collection("players").doc(docIdFor(name)).set(rec).then(function () {
+      if (saveError) { saveError = false; refreshStatus(); }
+    }).catch(function () { saveError = true; refreshStatus(); });
   } else {
     saveLocal();
+    if (saveError) { saveError = false; refreshStatus(); }
   }
 }
 function deletePlayerEverywhere(name) {
@@ -950,7 +968,9 @@ function deletePlayerEverywhere(name) {
      Remove button flow, so no path can delete a locked profile. */
   if (!isUnlocked(name)) { return false; }
   if (backend === "cloud" && db) {
-    db.collection("players").doc(docIdFor(name)).delete().catch(function () { saveError = true; });
+    db.collection("players").doc(docIdFor(name)).delete().then(function () {
+      if (saveError) { saveError = false; refreshStatus(); }
+    }).catch(function () { saveError = true; refreshStatus(); });
   }
   delete players[name];
   rebuildNames();
@@ -1020,9 +1040,12 @@ function importLocalPlayers(localImport) {
   if (changed) { rebuildNames(); renderHome(); }
 }
 function selectInitialLocal() {
-  if (device.lastProfile && players[device.lastProfile]) { currentProfile = device.lastProfile; }
-  else if (playerNames.length) { currentProfile = playerNames[0]; }
-  else { currentProfile = null; }
+  /* Same rule as the cloud path: the last player reopens on its own
+     only if this device has it unlocked or it has no PIN yet. */
+  if (device.lastProfile && players[device.lastProfile] &&
+      (isUnlocked(device.lastProfile) || !players[device.lastProfile].pin)) {
+    currentProfile = device.lastProfile;
+  } else { currentProfile = null; }
 }
 function initBackend() {
   loadLocalIntoMemory();
@@ -1095,7 +1118,7 @@ function unlockedCount(name) {
   var prog = profileProgress(name);
   var n = 1;
   for (var i = 0; i < LESSONS.length; i++) {
-    if (gateMet(prog, i)) { n = i + 2; }
+    if (gateMet(prog, i)) { n = i + 2; } else { break; }
   }
   return Math.min(n, LESSONS.length);
 }
@@ -1224,7 +1247,7 @@ function totalStars(prog) {
 }
 
 /* ---------------- Road to 60 WPM ----------------
-   The fluency program that follows the 13 key lessons. Eight timed
+   The fluency program that follows the 16 lessons. Eight timed
    stages from 10 to 60 WPM. A stage clears only at its target speed
    AND at least 95% accuracy, so speed never pays without care.
    Stage 1 opens once the final lesson's gate is passed; each stage then
@@ -1912,6 +1935,17 @@ function fillSaveNote() {
     saveNote.classList.add("hidden");
   }
 }
+/* A cloud update for the current player that arrived mid-session is
+   held in pendingRemote. Before a finish writes its outcomes, the
+   held record becomes the base they are written onto, so neither
+   side's progress is lost; outcomes are max() comparisons against
+   it. renderHome still applies it directly when no session ran. */
+function applyPendingRemoteAsBase() {
+  if (pendingRemote && currentProfile && pendingRemote.name === currentProfile && players[currentProfile]) {
+    players[currentProfile] = pendingRemote;
+  }
+  pendingRemote = null;
+}
 function finishTest() {
   if (session.finished) { return; }
   session.finished = true;
@@ -1920,6 +1954,7 @@ function finishTest() {
   var elapsed = session.startedAt ? (Date.now() - session.startedAt) / 1000 : 0;
   var finishedText = session.pos >= session.lines[0].length;
   var scored = finishedText ? elapsed : Math.min(elapsed, session.durationSec);
+  applyPendingRemoteAsBase();
   var acc = session.total === 0 ? 100 : Math.round(100 * session.correct / session.total);
   var wpm = scored > 0 ? Math.round((session.correct / 5) / (scored / 60)) : 0;
   var prog = profileProgress(currentProfile);
@@ -1942,7 +1977,6 @@ function finishTest() {
   if (runPts > (prog.weekBest[weekKey] || 0)) { prog.weekBest[weekKey] = runPts; }
   var newBadges = awardBadges(prog, { acc: acc, wpm: wpm });
   persistPlayer(currentProfile);
-  pendingRemote = null;
   var totalAfter = totalPoints(prog);
   var delta = totalAfter - totalBefore;
 
@@ -2051,9 +2085,9 @@ function startGame(idx) {
   scene.classList.remove("hidden");
   scene.classList.remove("crashed");
   document.getElementById("splats").innerHTML = "";
-  document.getElementById("game-speed").textContent = "Speed: 0 mph";
+  document.getElementById("game-speed").textContent = "Speed: 0 km/h";
   document.getElementById("game-dist").textContent = "Distance: 0 m of " + session.goalDist + " m";
-  document.getElementById("game-splats").textContent = "Bugs: 0/" + SPLAT_LIMIT;
+  document.getElementById("game-splats").textContent = "Bug splats: 0/" + SPLAT_LIMIT;
   var scenery = document.getElementById("scenery");
   scenery.innerHTML = "";
   for (var ti = 0; ti < 6; ti++) {
@@ -2088,7 +2122,7 @@ function gameTick() {
     session.distance += session.speed * dt * (25 / 60);
   }
   updateEngine(session.speed);
-  document.getElementById("game-speed").textContent = "Speed: " + Math.round(session.speed) + " mph";
+  document.getElementById("game-speed").textContent = "Speed: " + Math.round(session.speed) + " km/h";
   document.getElementById("game-dist").textContent =
     "Distance: " + Math.round(session.distance) + " m of " + session.goalDist + " m";
   document.getElementById("road-line").style.backgroundPosition =
@@ -2119,7 +2153,7 @@ function gameMistake() {
   s.style.top = (5 + Math.random() * 52) + "%";
   s.style.transform = "rotate(" + Math.floor(Math.random() * 360) + "deg)";
   document.getElementById("splats").appendChild(s);
-  document.getElementById("game-splats").textContent = "Bugs: " + session.splats + "/" + SPLAT_LIMIT;
+  document.getElementById("game-splats").textContent = "Bug splats: " + session.splats + "/" + SPLAT_LIMIT;
   if (session.splats >= SPLAT_LIMIT) {
     document.getElementById("game-scene").classList.add("crashed");
     finishGame(true);
@@ -2133,6 +2167,7 @@ function finishGame(crashed) {
   var stage = STAGES[session.stageIdx];
   var elapsed = session.startedAt ? (Date.now() - session.startedAt) / 1000 : 0;
   var scored = Math.min(Math.max(elapsed, 0), session.durationSec);
+  applyPendingRemoteAsBase();
   var acc = session.total === 0 ? 100 : Math.round(100 * session.correct / session.total);
   var wpm = scored > 0 ? Math.round((session.correct / 5) / (scored / 60)) : 0;
   var prog = profileProgress(currentProfile);
@@ -2152,7 +2187,6 @@ function finishGame(crashed) {
   if (runPts > (prog.weekBest[weekKey] || 0)) { prog.weekBest[weekKey] = runPts; }
   var newBadges = awardBadges(prog, { acc: acc, wpm: wpm, gameFinish: !crashed, splats: session.splats });
   persistPlayer(currentProfile);
-  pendingRemote = null;
   var totalAfter = totalPoints(prog);
   var delta = totalAfter - totalBefore;
 
@@ -2602,6 +2636,7 @@ function finishWordGame(ended) {
   var idx = session.stageIdx;
   var elapsed = session.startedAt ? (Date.now() - session.startedAt) / 1000 : 0;
   var scored = Math.min(Math.max(elapsed, 0), session.durationSec);
+  applyPendingRemoteAsBase();
   var acc = session.total === 0 ? 100 : Math.round(100 * session.correct / session.total);
   var wpm = scored > 0 ? Math.round((session.correct / 5) / (scored / 60)) : 0;
   var prog = profileProgress(currentProfile);
@@ -2630,7 +2665,6 @@ function finishWordGame(ended) {
     pizzaServed: game === "pizza" ? session.served : 0
   });
   persistPlayer(currentProfile);
-  pendingRemote = null;
   var totalAfter = totalPoints(prog);
   var delta = totalAfter - totalBefore;
   var names = { balloon: "Balloon Pop", space: "Space Defender", pizza: "Pizza Orders" };
@@ -2706,6 +2740,7 @@ function finishLesson() {
   if (acc >= band.acc) { stars = 2; }
   if (acc >= 97 && wpm >= band.star3) { stars = 3; }
   var met = acc >= band.acc && wpm >= band.wpm;
+  applyPendingRemoteAsBase();
   var prog = profileProgress(currentProfile);
   var prev = prog.stars[session.lessonIdx] || 0;
   var totalBefore = totalPoints(prog);
@@ -2717,8 +2752,10 @@ function finishLesson() {
   if (runPts > (prog.weekBest[session.lessonIdx] || 0)) { prog.weekBest[session.lessonIdx] = runPts; }
   if (stars > prev) { prog.stars[session.lessonIdx] = stars; }
   /* Gate bookkeeping: a gate-meeting run stores its acc/wpm and clears
-     the strike count; a failed run adds a strike and merges the keys
-     missed this run into the drill targets. */
+     the strike count; a failed run adds a strike. The drill targets
+     come from the last two attempts only: miss is the merge of the
+     previous attempt's misses (missLast) and this run's, so keys a
+     player has stopped missing age out of the drill. */
   var g = prog.gates[session.lessonIdx];
   if (!g || typeof g !== "object") {
     g = { acc: 0, wpm: 0, fails: 0, miss: {} };
@@ -2726,19 +2763,24 @@ function finishLesson() {
   }
   if (typeof g.fails !== "number") { g.fails = 0; }
   if (!g.miss || typeof g.miss !== "object") { g.miss = {}; }
+  if (!g.missLast || typeof g.missLast !== "object") { g.missLast = {}; }
   if (met) {
     if (acc > (g.acc || 0) || (acc === g.acc && wpm > (g.wpm || 0))) { g.acc = acc; g.wpm = wpm; }
     g.fails = 0;
     g.miss = {};
+    g.missLast = {};
   } else {
     g.fails++;
     var mk = session.missedKeys || {};
-    for (var key in mk) { g.miss[key] = (g.miss[key] || 0) + mk[key]; }
+    var mergedMiss = {};
+    for (var k1 in g.missLast) { mergedMiss[k1] = g.missLast[k1]; }
+    for (var k2 in mk) { mergedMiss[k2] = (mergedMiss[k2] || 0) + mk[k2]; }
+    g.miss = mergedMiss;
+    g.missLast = mk;
   }
   updateStreak(prog);
   var newBadges = awardBadges(prog, { acc: acc, wpm: wpm });
   persistPlayer(currentProfile);
-  pendingRemote = null;
   var totalAfter = totalPoints(prog);
   var delta = totalAfter - totalBefore;
 
@@ -3019,10 +3061,10 @@ function finishPractice() {
   var acc = session.total === 0 ? 100 : Math.round(100 * session.correct / session.total);
   var minutes = session.startedAt ? (Date.now() - session.startedAt) / 60000 : 0;
   var wpm = minutes > 0 ? Math.round((session.correct / 5) / minutes) : 0;
+  applyPendingRemoteAsBase();
   var prog = profileProgress(currentProfile);
   updateStreak(prog);
   persistPlayer(currentProfile);
-  pendingRemote = null;
   document.getElementById("result-stars").textContent = "⌨️";
   document.getElementById("result-title").textContent = "Practice done, " + currentProfile + "!";
   document.getElementById("result-wpm").textContent = wpm;
@@ -3108,9 +3150,7 @@ function selectProfile(name) {
   if (name === currentProfile) { hidePinPanel(); renderHome(); return; }
   if (!rec.pin) { openPinPanel(name, "set"); return; }
   if (!isUnlocked(name)) { openPinPanel(name, "unlock"); return; }
-  currentProfile = name;
-  device.lastProfile = name;
-  saveDevice();
+  setCurrentProfile(name);
   hidePinPanel();
   renderHome();
 }
@@ -3122,11 +3162,18 @@ function registerProfile() {
   var pin = pinInput.value.trim();
   errEl.classList.add("hidden");
   if (!name) { nameInput.focus(); return; }
+  if (!/^[A-Za-z0-9][A-Za-z0-9 '\-]*$/.test(name)) {
+    errEl.textContent = "Names can use letters, numbers, spaces, - and '. Try a simpler name.";
+    errEl.classList.remove("hidden");
+    nameInput.focus();
+    return;
+  }
   var existing = findPlayer(name);
   if (existing) {
+    errEl.textContent = existing + " is already a player here. If that is you, tap your name above and type your PIN.";
+    errEl.classList.remove("hidden");
     nameInput.value = "";
     pinInput.value = "";
-    selectProfile(existing);
     return;
   }
   if (!/^\d{4}$/.test(pin)) {
@@ -3140,15 +3187,55 @@ function registerProfile() {
   rec.createdAt = Date.now();
   players[name] = rec;
   rebuildNames();
-  persistPlayer(name);
+  createPlayerRecord(name);
   markUnlocked(name);
-  currentProfile = name;
-  device.lastProfile = name;
-  saveDevice();
+  setCurrentProfile(name);
   nameInput.value = "";
   pinInput.value = "";
   hidePinPanel();
   renderHome();
+}
+/* Registration is the one write that must never overwrite: in cloud
+   mode it runs as a create-only transaction, so a name another
+   device registered first (before its snapshot reached this one)
+   is not clobbered by a blank record. If the server cannot be
+   reached at all, it falls back to a plain write so joining still
+   works offline, and syncs later. */
+function createPlayerRecord(name) {
+  var rec = players[name];
+  if (!rec) { return; }
+  if (backend !== "cloud" || !db) { saveLocal(); return; }
+  var ref = db.collection("players").doc(docIdFor(name));
+  var taken = false;
+  var txPromise;
+  try {
+    txPromise = db.runTransaction(function (tx) {
+      return tx.get(ref).then(function (snap) {
+        if (snap.exists) { taken = true; return; }
+        tx.set(ref, rec);
+      });
+    });
+  } catch (e) {
+    txPromise = Promise.reject(e);
+  }
+  txPromise.then(function () {
+    if (taken) {
+      delete players[name];
+      rebuildNames();
+      lockProfile(name);
+      if (currentProfile === name) { currentProfile = null; device.lastProfile = null; saveDevice(); }
+      var errEl = document.getElementById("register-error");
+      errEl.textContent = name + " was just taken by another player. If that is you, tap your name above and type your PIN.";
+      errEl.classList.remove("hidden");
+      renderHome();
+      return;
+    }
+    if (saveError) { saveError = false; refreshStatus(); }
+  }).catch(function () {
+    ref.set(rec).then(function () {
+      if (saveError) { saveError = false; refreshStatus(); }
+    }).catch(function () { saveError = true; refreshStatus(); });
+  });
 }
 document.getElementById("btn-register").addEventListener("click", registerProfile);
 document.getElementById("new-name").addEventListener("keydown", function (e) {
@@ -3210,9 +3297,7 @@ function submitPin() {
   var unlockedName = pinTarget;
   var purpose = pinPurpose;
   markUnlocked(pinTarget);
-  currentProfile = pinTarget;
-  device.lastProfile = pinTarget;
-  saveDevice();
+  setCurrentProfile(pinTarget);
   hidePinPanel();
   renderHome();
   if (purpose === "remove" && currentProfile === unlockedName) { armRemove(); }
