@@ -878,7 +878,9 @@ function rebuildNames() {
    sibling's player. It is not strong security. Switching to another
    player locks the one left behind, so coming back to it asks for
    its PIN again; the active player stays unlocked for its session,
-   which is also what removing a player checks. */
+   which is also what removing a player checks. A fresh page load
+   starts locked too: the unlocked list is cleared on boot and the
+   picker is always the landing. */
 function pinHash(name, pin) {
   var s = name.toLowerCase() + ":" + pin;
   var h = 0x811c9dc5;
@@ -1018,9 +1020,6 @@ function applyPlayersSnapshot(snap) {
   if (hold) { players[currentProfile] = hold; }
   rebuildNames();
   if (currentProfile && !players[currentProfile] && (!session || session.finished)) { currentProfile = null; }
-  if (!currentProfile && device.lastProfile && players[device.lastProfile] && isUnlocked(device.lastProfile)) {
-    currentProfile = device.lastProfile;
-  }
   dataReady = true;
   refreshStatus();
   if (!homeScreen.classList.contains("hidden")) { renderHome(); }
@@ -1040,17 +1039,20 @@ function importLocalPlayers(localImport) {
   if (changed) { rebuildNames(); renderHome(); }
 }
 function selectInitialLocal() {
-  /* Same rule as the cloud path: the last player reopens on its own
-     only if this device has it unlocked or it has no PIN yet. */
-  if (device.lastProfile && players[device.lastProfile] &&
-      (isUnlocked(device.lastProfile) || !players[device.lastProfile].pin)) {
-    currentProfile = device.lastProfile;
-  } else { currentProfile = null; }
+  /* A fresh load always lands on the picker (see initBackend):
+     nobody is auto-entered, in either backend. */
+  currentProfile = null;
 }
 function initBackend() {
   loadLocalIntoMemory();
   migrateLegacy();
   rebuildNames();
+  /* Lock on load: unlocked state is session-scoped. Whatever a
+     previous session left in device.unlocked is cleared here, so a
+     fresh page always starts at the picker and every PIN-protected
+     player asks for its PIN again. Players with no PIN set are not
+     affected; they open through the claim flow as before. */
+  if (device.unlocked.length) { device.unlocked = []; saveDevice(); }
   var localImport = players;
   if (window.firebase && CONFIG_READY) {
     try {
